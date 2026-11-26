@@ -52,3 +52,15 @@ npm run dev
    `update sales s set net_amount = t.merchant_payout_amount from iyzico_transactions t where t.sale_id = s.id;`
    ardından `select iyzico_auto_match((select id from companies where slug='dijitalbiradam'));`
 4. `legacy-migrate` ve `iyzico-backfill` fonksiyonları, `OLD_SERVICE_ROLE_KEY` secret'ı ve `migration_control` tablosu silinir.
+
+## Telefon aramaları (CRM Arama Android uygulaması)
+
+- Kod: `android/`. GitHub Actions (`.github/workflows/android.yml`) her `android/**` değişikliğinde APK üretir ve `public/crm-arama.apk` olarak siteye koyar; satışçılar `/uygulama` sayfasından indirir.
+- İmza: `ANDROID_KEYSTORE_B64` ve `ANDROID_KEYSTORE_PASSWORD` GitHub secret'ları tanımlıysa kalıcı anahtarla, değilse geçici (debug) anahtarla imzalanır. Ekibe dağıtmadan önce kalıcı anahtara geçin; anahtar değişirse telefonlarda uygulamayı silip yeniden kurmak gerekir.
+- Veri: `call_logs`, `call_devices`; uygulama `ingest_calls()` ve `match_phone_hashes()` çağırır. Kayıtlı olmayan numaraya giden aramalar telefondan çıkmaz (yalnız SHA-256 özeti sorulur).
+
+## Funnel (Google Sheet → CRM)
+
+- Eski veri merkezindeki `funnel_yedek` → `funnel_rows` (source = arsiv) taşındı (`hub-import`, tek seferlik).
+- Canlı: sayfadaki Apps Script (`tools/funnel-apps-script.gs`, jeton `sync_control.funnel`) 5 dakikada bir `funnel-ingest` fonksiyonuna son 300 satırı yollar.
+- Otomatik data açma `companies.settings.funnel_auto_create` ile açılır. **Geçiş gününden önce açmayın** (eski CRM'den yeniden aktarımla çift kayıt olur). Geçiş günü: `update companies set settings = settings || '{"funnel_auto_create":true}' where slug='dijitalbiradam';`

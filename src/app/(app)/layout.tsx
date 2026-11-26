@@ -28,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/aktarim", label: "Toplu Aktarım", show: staff },
     { href: "/reklam-yonetimi", label: "Reklam Yönetimi", show: r === "admin" || r === "yonetici" || r === "dataci" },
     { href: "/raporlar", label: "Raporlar", show: staff },
+    { href: "/primler", label: "Primler", show: manager },
     { href: "/iyzico", label: "iyzico", show: r === "admin" || r === "yonetici" || r === "dataci" },
     { href: "/notlar", label: "Notlar", show: staff },
     { href: "/egitimler", label: "Eğitimler", show: manager },

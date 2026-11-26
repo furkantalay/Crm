@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { monthStartIst, num, tl, todayIst } from "@/lib/format";
+import { loadCommissions } from "@/lib/commission";
 
 function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
@@ -38,6 +40,12 @@ export default async function PanelPage() {
   const adSum = adPublic.reduce((s, r) => s + Number(r.monthly_fee), 0);
   const adPrivSum = adPrivate.reduce((s, r) => s + Number(r.monthly_fee), 0);
   const sellers = (summary.data ?? []).filter((s) => isStaff(me.role) || s.seller_id === me.id);
+  const manager = me.role === "admin" || me.role === "yonetici";
+  const prim = manager ? new Map((await loadCommissions(todayIst().slice(0, 7))).rows.map((r) => [r.seller_id, r])) : null;
+  type Mine = { total: number | null; sale_count: number | null; tier_kind: string | null; tier_value: number | null; monthly_commission: number | null;
+    daily_commission: number | null; daily_bonus_days: number | null; next_tier_min: number | null; to_next_tier: number | null;
+    today_total: number | null; today_commission: number | null; next_daily_min: number | null };
+  const mine = me.role === "satisci" ? ((await supabase.rpc("my_commission", { p_month: monthStart })).data as Mine[] | null)?.[0] ?? null : null;
 
   return (
     <div className="space-y-6">
@@ -60,6 +68,26 @@ export default async function PanelPage() {
         )}
       </div>
 
+      {mine && (
+        <div className="card border-l-4 border-green-600">
+          <h2 className="mb-2 text-lg font-semibold">Bu Ay Tahmini Primim</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div><div className="text-sm text-slate-500">Aylık satışım</div><div className="text-xl font-bold">{tl(mine.total ?? 0)}</div></div>
+            <div><div className="text-sm text-slate-500">Aylık prim</div><div className="text-xl font-bold">{tl(mine.monthly_commission ?? 0)}</div>
+              <div className="text-xs text-slate-500">{mine.tier_kind ? (mine.tier_kind === "percent" ? `%${Number(mine.tier_value)} kademesi` : "sabit kademe") : "henüz kademe yok"}</div></div>
+            <div><div className="text-sm text-slate-500">Günlük primler</div><div className="text-xl font-bold">{tl(mine.daily_commission ?? 0)}</div>
+              <div className="text-xs text-slate-500">{mine.daily_bonus_days ?? 0} gün</div></div>
+            <div><div className="text-sm text-slate-500">Toplam</div><div className="text-xl font-bold text-green-700">{tl(Number(mine.monthly_commission ?? 0) + Number(mine.daily_commission ?? 0))}</div></div>
+          </div>
+          <div className="mt-3 space-y-1 text-sm">
+            {mine.to_next_tier != null && <p>🎯 Sonraki aylık kademeye <b>{tl(mine.to_next_tier)}</b> kaldı ({tl(mine.next_tier_min)}).</p>}
+            <p>📅 Bugün: {tl(mine.today_total ?? 0)} satış{Number(mine.today_commission) > 0 ? <> · <b>{tl(mine.today_commission)}</b> günlük prim kazandın</> : ""}
+              {mine.next_daily_min != null && <> · sonraki günlük prime <b>{tl(Number(mine.next_daily_min) - Number(mine.today_total ?? 0))}</b> kaldı</>}</p>
+            <p className="text-xs text-slate-500">Tahminidir; iade, iptal ve düzeltmelerle ay sonunda değişebilir.</p>
+          </div>
+        </div>
+      )}
+
       <div className="card overflow-x-auto">
         <h2 className="mb-3 text-lg font-semibold">{isStaff(me.role) ? "Satışçı Genel Özeti" : "Özetim"}</h2>
         <table className="w-full">
@@ -68,6 +96,7 @@ export default async function PanelPage() {
               <th className="th">Satışçı</th><th className="th">Elindeki Data</th>
               <th className="th">Bu Ay Satış</th><th className="th">Bu Ay Ciro</th>
               <th className="th">Toplam Satış</th><th className="th">Toplam Ciro</th>
+              {prim && <th className="th">Bu Ay Prim</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -79,6 +108,10 @@ export default async function PanelPage() {
                 <td className="td">{tl(s.month_revenue)}</td>
                 <td className="td">{num(s.total_sales)}</td>
                 <td className="td">{tl(s.total_revenue)}</td>
+                {prim && (() => { const c = prim.get(s.seller_id); return (
+                  <td className="td whitespace-nowrap font-semibold text-green-700">
+                    {c ? <Link href={`/primler?satisci=${s.seller_id}`} className="hover:underline">{tl(Number(c.monthly_commission) + Number(c.daily_commission))}</Link> : "-"}
+                  </td>); })()}
               </tr>
             ))}
           </tbody>

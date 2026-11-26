@@ -21,6 +21,8 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith("/giris");
+  // Şifre belirleme sayfası giriş durumundan bağımsız açılır
+  if (path.startsWith("/sifre-belirle")) return response;
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

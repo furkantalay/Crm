@@ -2,6 +2,7 @@
 // Supabase şifresine çevirir ve eski hash'i siler. Asıl giriş istemcide signInWithPassword ile yapılır.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { scryptSync, timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -25,7 +26,8 @@ function verifyWerkzeug(password: string, stored: string): boolean {
     const expected = Buffer.from(hex, "hex");
     const got = scryptSync(password, salt, expected.length, { N, r: R, p: P, maxmem: 132 * N * R * P });
     return got.length === expected.length && timingSafeEqual(got, expected);
-  } catch {
+  } catch (e) {
+    console.error("legacy-verify-error", String(e)); // şifre loglanmaz
     return false;
   }
 }
@@ -59,7 +61,10 @@ Deno.serve(async (req) => {
     // Eski şifre hâlâ duruyorsa: doğrula ve taşı
     const [legacy] = await get(`legacy_credentials?user_id=eq.${p.id}&select=password_hash`);
     if (legacy) {
-      if (!verifyWerkzeug(password, legacy.password_hash)) return json({ error: "Kullanıcı adı veya şifre hatalı." }, 401);
+      if (!verifyWerkzeug(password, legacy.password_hash)) {
+        console.warn("legacy-password-mismatch", p.username); // şifre loglanmaz
+        return json({ error: "Kullanıcı adı veya şifre hatalı." }, 401);
+      }
       const up = await fetch(`${URL_}/auth/v1/admin/users/${p.id}`, {
         method: "PUT", headers: h, body: JSON.stringify({ password }),
       });

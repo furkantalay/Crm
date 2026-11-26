@@ -7,8 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 export default function IdleLogout({ minutes }: { minutes: number | null }) {
   useEffect(() => {
     const supabase = createClient();
-    supabase.rpc("touch_last_seen");
-    const ping = setInterval(() => supabase.rpc("touch_last_seen"), 120_000);
+    // rpc() ancak await/then ile gönderilir
+    const touch = () => { supabase.rpc("touch_last_seen").then(() => undefined); };
+    touch();
+    const ping = setInterval(touch, 120_000);
 
     if (!minutes) return () => clearInterval(ping);
     let timer: ReturnType<typeof setTimeout>;

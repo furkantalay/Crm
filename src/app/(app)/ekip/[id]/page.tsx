@@ -4,7 +4,8 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, roleLabel, tl, todayIst } from "@/lib/format";
 import AutoRefresh from "@/components/AutoRefresh";
-import { ago, duration, gapCls, statusOf, timeIst, type TeamRow } from "@/lib/team";
+import { ago, appState, duration, gapCls, statusOf, timeIst, type TeamRow } from "@/lib/team";
+import { callDur } from "@/lib/calls";
 
 type Params = Promise<{ id: string }>;
 type SP = Promise<Record<string, string | undefined>>;
@@ -79,9 +80,10 @@ export default async function TeamMemberPage({ params, searchParams }: { params:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {st && <div className="card"><div className="text-sm text-slate-500">Şu an</div><span className={`pill mt-1 ${st.cls}`}>{st.label}</span><div className="mt-1 text-xs text-slate-500">son kayıt: {ago(todayRow!.last_event_at, now)}</div></div>}
         <div className="card"><div className="text-sm text-slate-500">Başlama / son kayıt</div><div className="text-xl font-bold">{timeIst(todayRow?.first_at ?? null)} – {timeIst(todayRow?.last_event_at ?? null)}</div></div>
+        <div className="card"><div className="text-sm text-slate-500">Arama · Konuşma</div><div className="text-xl font-bold">{todayRow?.call_out ?? 0} giden · {callDur(todayRow?.talk_seconds ?? 0)}</div><div className="text-xs text-slate-500">{todayRow?.call_answered ?? 0} açıldı · {todayRow?.call_in ?? 0} gelen · {todayRow?.call_missed ?? 0} cevapsız</div>{todayRow && isToday && (() => { const a = appState(todayRow, now); return <div className={`text-xs ${a.cls}`}>{a.label}</div>; })()}</div>
         <div className="card"><div className="text-sm text-slate-500">Not · Satış · Diğer</div><div className="text-xl font-bold">{todayRow?.note_count ?? 0} · {todayRow?.sale_count ?? 0} · {todayRow?.other_count ?? 0}</div>{!!todayRow?.sale_amount && <div className="text-xs text-green-700">{tl(todayRow.sale_amount)}</div>}</div>
         <div className="card"><div className="text-sm text-slate-500">Ekranda aktif</div><div className="text-xl font-bold">{duration(todayRow?.active_minutes ?? 0)}</div><div className="text-xs text-slate-500">açık: {duration(todayRow?.open_minutes ?? 0)}</div></div>
         <div className="card"><div className="text-sm text-slate-500">En uzun boşluk</div><div className={`text-xl font-bold ${gapCls(todayRow?.longest_gap_minutes ?? null)}`}>{duration(todayRow?.longest_gap_minutes)}</div>{todayRow?.longest_gap_from && <div className="text-xs text-slate-500">{timeIst(todayRow.longest_gap_from)}&apos;dan sonra</div>}</div>
@@ -124,7 +126,7 @@ export default async function TeamMemberPage({ params, searchParams }: { params:
               ) : (
                 <tr key={`e${i}`}>
                   <td className="td w-16 whitespace-nowrap font-mono">{timeIst(x.e.at)}</td>
-                  <td className="td w-40 whitespace-nowrap"><span className={`pill ${x.e.kind === "Satış" ? "bg-green-100 text-green-800" : ""}`}>{x.e.kind}</span></td>
+                  <td className="td w-40 whitespace-nowrap"><span className={`pill ${x.e.kind === "Satış" ? "bg-green-100 text-green-800" : x.e.kind.startsWith("Arama") ? "bg-blue-100 text-blue-800" : ""}`}>{x.e.kind}</span></td>
                   <td className="td text-slate-600">{x.e.detail}</td>
                 </tr>
               ))}
@@ -136,13 +138,14 @@ export default async function TeamMemberPage({ params, searchParams }: { params:
         <div className="card overflow-x-auto p-0">
           <h2 className="p-4 pb-2 text-lg font-semibold">Son 7 gün</h2>
           <table className="w-full">
-            <thead className="bg-slate-50"><tr><th className="th">Gün</th><th className="th">Saat</th><th className="th">Not</th><th className="th">Satış</th><th className="th">Aktif</th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className="th">Gün</th><th className="th">Saat</th><th className="th">Not</th><th className="th">Arama</th><th className="th">Satış</th><th className="th">Aktif</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {weekRows.map(({ d, r }) => (
                 <tr key={d} className={d === day ? "bg-blue-50" : ""}>
                   <td className="td whitespace-nowrap"><Link href={`/ekip/${id}?gun=${d}`} className="text-blue-700 hover:underline">{date(d)}</Link></td>
                   <td className="td whitespace-nowrap text-xs">{r?.first_at ? `${timeIst(r.first_at)}–${timeIst(r.last_event_at)}` : "—"}</td>
                   <td className="td">{r?.note_count ?? 0}</td>
+                  <td className="td whitespace-nowrap">{r?.call_out ?? 0}{r?.talk_seconds ? <span className="text-xs text-slate-500"> · {callDur(r.talk_seconds)}</span> : null}</td>
                   <td className="td">{r?.sale_count ?? 0}</td>
                   <td className="td whitespace-nowrap">{duration(r?.active_minutes ?? 0)}</td>
                 </tr>

@@ -3,7 +3,8 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { roleLabel, tl, todayIst } from "@/lib/format";
 import AutoRefresh from "@/components/AutoRefresh";
-import { ago, duration, gapCls, statusOf, timeIst, type TeamRow } from "@/lib/team";
+import { ago, appState, duration, gapCls, statusOf, timeIst, type TeamRow } from "@/lib/team";
+import { callDur } from "@/lib/calls";
 
 type SP = Promise<Record<string, string | undefined>>;
 
@@ -34,8 +35,8 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
         <span className="text-xs text-slate-500">{isToday ? `Her dakika kendini yeniler · son güncelleme ${timeIst(new Date(now).toISOString())}` : "Geçmiş gün"}</span>
       </div>
       <p className="text-sm text-slate-600">
-        &quot;Son işlem&quot; ve sayılar CRM&apos;e girilen gerçek kayıtlardan gelir (not, satış, data, toplantı…). &quot;Ekranda aktif&quot;, CRM sekmesi önde
-        ve klavye/fare kullanılırken geçen süredir. CRM dışında yapılan iş (örneğin not girilmeyen telefon görüşmesi) burada görünmez.
+        &quot;Son işlem&quot; ve sayılar CRM&apos;e girilen gerçek kayıtlardan ve telefon uygulamasından gelen aramalardan gelir (not, arama, satış, data, toplantı…). &quot;Ekranda aktif&quot;, CRM sekmesi önde
+        ve klavye/fare kullanılırken geçen süredir. Telefon uygulaması kurulu olmayan kişinin aramaları burada görünmez.
       </p>
 
       <form className="card flex flex-wrap items-end gap-3" action="/ekip">
@@ -69,6 +70,8 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
             <th className="th">Son işlem</th>
             <th className="th">Not</th>
             <th className="th">Satış</th>
+            <th className="th">Arama</th>
+            <th className="th">Konuşma</th>
             <th className="th">Diğer</th>
             <th className="th">Ekranda aktif</th>
             <th className="th">En uzun boşluk</th>
@@ -79,6 +82,7 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
                 <td className="td">
                   <Link href={`/ekip/${r.user_id}?gun=${day}`} className="font-medium text-blue-700 hover:underline">{r.full_name}</Link>
                   {roleFilter === "hepsi" && <div className="text-xs text-slate-500">{roleLabel[r.role]}</div>}
+                  {isToday && (() => { const a = appState(r, now); return <div className={`text-xs ${a.cls}`}>{a.label}</div>; })()}
                 </td>
                 {isToday && (
                   <td className="td whitespace-nowrap">
@@ -97,6 +101,11 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
                 </td>
                 <td className="td">{r.note_count || <span className="text-slate-400">0</span>}</td>
                 <td className="td whitespace-nowrap">{r.sale_count ? <>{r.sale_count} · {tl(r.sale_amount)}</> : <span className="text-slate-400">0</span>}</td>
+                <td className="td whitespace-nowrap">
+                  {r.call_out || r.call_in ? <>{r.call_out} giden <span className="text-xs text-slate-500">({r.call_answered} açıldı)</span>{r.call_in > 0 && <div className="text-xs text-slate-500">{r.call_in} gelen</div>}</> : <span className="text-slate-400">0</span>}
+                  {r.call_missed > 0 && <div className="text-xs text-amber-700">{r.call_missed} cevapsız</div>}
+                </td>
+                <td className="td whitespace-nowrap">{r.talk_seconds ? callDur(r.talk_seconds) : <span className="text-slate-400">—</span>}</td>
                 <td className="td">{r.other_count || <span className="text-slate-400">0</span>}</td>
                 <td className="td whitespace-nowrap">{duration(r.active_minutes)}{r.open_minutes > r.active_minutes && <div className="text-xs text-slate-500">açık: {duration(r.open_minutes)}</div>}</td>
                 <td className={`td whitespace-nowrap ${gapCls(r.longest_gap_minutes)}`}>
@@ -105,7 +114,7 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
                 </td>
               </tr>
             ))}
-            {!rows.length && <tr><td className="td py-8 text-center text-slate-500" colSpan={9}>Kayıt yok.</td></tr>}
+            {!rows.length && <tr><td className="td py-8 text-center text-slate-500" colSpan={11}>Kayıt yok.</td></tr>}
           </tbody>
         </table>
       </div>

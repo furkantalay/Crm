@@ -4,7 +4,18 @@ export type TeamRow = {
   last_ping_at: string | null; last_ping_active: boolean | null; last_active_at: string | null;
   note_count: number; sale_count: number; sale_amount: number; other_count: number;
   active_minutes: number; open_minutes: number; longest_gap_minutes: number | null; longest_gap_from: string | null;
+  call_out: number; call_answered: number; call_in: number; call_missed: number; talk_seconds: number;
+  app_last_sync: string | null; app_permission_ok: boolean | null;
 };
+
+/** Telefon uygulamasının durumu (bugün için) */
+export function appState(r: TeamRow, now = Date.now()): { label: string; cls: string } {
+  if (!r.app_last_sync) return { label: "📱 uygulama kurulu değil", cls: "text-slate-400" };
+  if (r.app_permission_ok === false) return { label: "📱 izin kapalı", cls: "font-semibold text-red-700" };
+  const m = (now - new Date(r.app_last_sync).getTime()) / 60_000;
+  if (m > 90) return { label: `📱 ${ago(r.app_last_sync, now)} gönderdi`, cls: "font-semibold text-red-700" };
+  return { label: "📱 bağlı", cls: "text-green-700" };
+}
 
 export type Status = { key: "working" | "browsing" | "idle" | "offline"; label: string; cls: string; dot: string; order: number };
 

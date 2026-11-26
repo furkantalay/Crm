@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { callDur, callIcon, callLabel } from "@/lib/calls";
 import { notFound } from "next/navigation";
 import { getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -16,7 +17,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const { data: c } = await supabase.from("v_customer_list").select("*").eq("id", id).maybeSingle();
   if (!c) notFound();
 
-  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }] = await Promise.all([
+  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }] = await Promise.all([
     supabase.from("customers").select("email, extra, created_at").eq("id", id).single(),
     supabase.from("interactions").select("id, note, channel, created_at, next_followup_at, user:profiles(full_name), status:lookups(label)")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(200),
@@ -24,6 +25,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     supabase.from("lookups").select("id, category, label").eq("is_active", true).order("sort_order"),
     supabase.from("products").select("id, name, kind").eq("is_active", true).order("kind", { ascending: false }).order("sort_order"),
     supabase.from("profiles").select("id, full_name").eq("role", "satisci").eq("is_active", true).order("full_name"),
+    supabase.from("v_call_list").select("id, direction, started_at, duration_sec, user_name")
+      .eq("customer_id", id).order("started_at", { ascending: false }).limit(100),
   ]);
   const L = (cat: string) => (lookups ?? []).filter((l) => l.category === cat);
   const extra = (raw?.extra ?? {}) as Record<string, string>;
@@ -35,7 +38,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         <div>
           <Link href="/datalar" className="text-sm text-slate-500 hover:underline">← Datalar</Link>
           <h1 className="text-3xl font-bold">{c.full_name}</h1>
-          <p className="text-slate-600">{c.phone}{raw?.email ? ` · ${raw.email}` : ""}{c.city ? ` · ${c.city}` : ""}</p>
+          <p className="text-slate-600"><a href={`tel:${c.phone}`} className="font-medium text-blue-700 hover:underline">📞 {c.phone}</a>{raw?.email ? ` · ${raw.email}` : ""}{c.city ? ` · ${c.city}` : ""}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="pill">{c.data_type ?? "-"}</span>
@@ -100,6 +103,21 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="card">
+          {!!calls?.length && (
+            <div className="mb-4">
+              <h2 className="mb-2 text-lg font-semibold">Telefon Görüşmeleri ({calls.length})</h2>
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100 text-sm">
+                {calls.map((k) => (
+                  <li key={k.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <span>{callIcon(k.direction, k.duration_sec)}</span>
+                    <span className="font-medium">{callLabel(k.direction, k.duration_sec)}</span>
+                    {k.duration_sec > 0 && <span className="text-slate-600">{callDur(k.duration_sec)}</span>}
+                    <span className="ml-auto text-xs text-slate-500">{dateTime(k.started_at)} · {k.user_name}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <h2 className="mb-3 text-lg font-semibold">Görüşme Geçmişi ({history?.length ?? 0})</h2>
           <ul className="space-y-3">
             {(history ?? []).map((h) => {

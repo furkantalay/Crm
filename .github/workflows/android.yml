@@ -1,0 +1,59 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      # Kalıcı imza anahtarı tanımlıysa onunla imzala (güncellemeler sorunsuz kurulur).
+      # Tanımlı değilse deneme için geçici anahtarla imzalanır.
+      - name: İmza anahtarı
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "SIGNED=release" >> "$GITHUB_ENV"
+          else
+            echo "SIGNED=debug" >> "$GITHUB_ENV"
+          fi
+
+      - name: Derle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 1.0.${{ github.run_number }}
+        run: |
+          if [ "$SIGNED" = "release" ]; then
+            gradle -p android :app:assembleRelease --no-daemon
+            cp android/app/build/outputs/apk/release/app-release.apk crm-arama.apk
+          else
+            gradle -p android :app:assembleDebug --no-daemon
+            cp android/app/build/outputs/apk/debug/app-debug.apk crm-arama.apk
+          fi
+          echo "1.0.${{ github.run_number }} ($SIGNED)" > crm-arama-version.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crm-arama
+          path: |
+            crm-arama.apk
+            crm-arama-version.txt
+          retention-days: 30

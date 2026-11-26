@@ -37,3 +37,18 @@ npm run dev
 ## Roller
 
 `admin` · `yonetici` · `dataci` · `satisci` · `teknik`. Satışçı dışındaki roller şirketin tüm datasını görür; reklam yönetimindeki "admin özel" kayıtları yalnız admin görür.
+
+## iyzico
+
+- `iyzico-sync` (her saat, pg_cron) son 3 günün işlemlerini çeker; `iyzico_auto_match` tutar + tarih (−3/+1 gün) + taksitte **tek** aday varsa satışa bağlar ve `net_amount`'u iyzico'nun yatıracağı tutarla doldurur (`net_source = 'iyzico'`).
+- Belirsiz eşleşmeler `/iyzico` ekranından elle bağlanır.
+- Anahtarlar Supabase Edge Function Secrets'ta: `IYZICO_API_KEY`, `IYZICO_SECRET_KEY` (kodda yok).
+
+## Geçiş günü kontrol listesi
+
+1. Eski CRM'den taze yedek veri merkezine (eski Supabase projesi) aktarılır.
+2. `legacy-migrate` adımları tetikleyiciler kapalıyken çalıştırılır (users → customers → diğerleri), sonra tetikleyiciler açılır ve sequence'lar ayarlanır.
+3. iyzico net tutarlarını yeniden uygula (taşıma eski elle girilen tutarları yazar):
+   `update sales s set net_amount = t.merchant_payout_amount from iyzico_transactions t where t.sale_id = s.id;`
+   ardından `select iyzico_auto_match((select id from companies where slug='dijitalbiradam'));`
+4. `legacy-migrate` ve `iyzico-backfill` fonksiyonları, `OLD_SERVICE_ROLE_KEY` secret'ı ve `migration_control` tablosu silinir.

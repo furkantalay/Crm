@@ -21,13 +21,14 @@ export default async function PanelPage() {
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("v_customer_list").select("id", { count: "exact", head: true })
       .eq("is_active", true).or("status_is_won.is.null,status_is_won.eq.false"),
-    supabase.from("sales").select("amount").eq("is_active", true).gte("order_date", monthStart),
+    supabase.from("sales").select("amount, net_amount").eq("is_active", true).gte("order_date", monthStart),
     supabase.from("ad_clients").select("monthly_fee, is_admin_private, started_at, ended_at").eq("is_active", true).eq("status", "devam"),
     supabase.from("v_seller_summary").select("*").eq("user_active", true).order("month_revenue", { ascending: false }),
   ]);
 
   const salesCount = monthSales.data?.length ?? 0;
   const salesSum = (monthSales.data ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  const netSum = (monthSales.data ?? []).reduce((s, r) => s + Number(r.net_amount ?? r.amount), 0);
   // Bu ay içinde aktif olan reklam kayıtları (eski paneldeki hesapla aynı)
   const today = todayIst();
   const adRows = (ads.data ?? []).filter((a) =>
@@ -47,10 +48,11 @@ export default async function PanelPage() {
         <Stat label="Aktif Data" value={num(active.count)} sub="Satışa dönmemiş" />
         <Stat label="Bu Ay Satış" value={num(salesCount)} />
         <Stat label="Bu Ay Satış Cirosu" value={tl(salesSum)} />
+        <Stat label="Bu Ay Bize Kalan" value={tl(netSum)} sub={salesSum ? `Kesinti: ${tl(salesSum - netSum)}` : undefined} />
         {me.role !== "satisci" && (
           <>
             <Stat label="Bu Ay Reklam Yönetimi" value={tl(adSum)} sub={`${adPublic.length} kayıt`} />
-            <Stat label="Satış + Reklam Cirosu" value={tl(salesSum + adSum)} />
+            <Stat label="Bize Kalan + Reklam" value={tl(netSum + adSum)} sub={`Brüt satış + reklam: ${tl(salesSum + adSum)}`} />
           </>
         )}
         {me.role === "admin" && (

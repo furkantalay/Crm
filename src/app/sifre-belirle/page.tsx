@@ -11,7 +11,9 @@ function readError(e: unknown): Promise<string | null> {
 
 function SetPasswordForm() {
   const router = useRouter();
-  const token = useSearchParams().get("t") ?? "";
+  const params = useSearchParams();
+  const token = params.get("t") ?? "";
+  const short = params.get("kisa") === "1";
   const [who, setWho] = useState<{ username: string; full_name: string } | null>(null);
   const [invalid, setInvalid] = useState<string | null>(null);
   const [pw, setPw] = useState("");
@@ -54,6 +56,7 @@ function SetPasswordForm() {
         <div>
           <h1 className="text-2xl font-bold">Yeni şifre belirle</h1>
           {who && <p className="text-sm text-slate-500">Kullanıcı adınız: <b>{who.username}</b></p>}
+          {short && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Eski şifreniz doğru, ancak yeni sistem için kısa. Lütfen en az 8 karakterlik yeni bir şifre belirleyin.</p>}
         </div>
         {invalid ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{invalid}</p>

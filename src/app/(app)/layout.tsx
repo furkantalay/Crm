@@ -15,11 +15,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
   ]);
 
+  const r = me.role;
+  const staff = r !== "satisci";
+  const manager = r === "admin" || r === "yonetici";
   const items = [
-    { href: "/", label: "Panel" },
-    { href: "/datalar", label: "Datalar" },
-    { href: "/satislar", label: "Satışlar" },
-  ];
+    { href: "/", label: "Panel", show: true },
+    { href: "/datalar", label: "Datalar", show: true },
+    { href: "/satislar", label: "Satışlar", show: true },
+    { href: "/beklenen-satislar", label: "Beklenen Satışlar", show: true },
+    { href: "/toplantilar", label: "Toplantı Planı", show: true },
+    { href: "/memnuniyet", label: "Memnuniyet", show: true },
+    { href: "/aktarim", label: "Toplu Aktarım", show: staff },
+    { href: "/reklam-yonetimi", label: "Reklam Yönetimi", show: r === "admin" || r === "yonetici" || r === "dataci" },
+    { href: "/raporlar", label: "Raporlar", show: staff },
+    { href: "/notlar", label: "Notlar", show: staff },
+    { href: "/egitimler", label: "Eğitimler", show: manager },
+    { href: "/kullanicilar", label: "Kullanıcılar", show: manager },
+    { href: "/ayarlar", label: "Ayarlar", show: manager },
+    { href: "/teknik-kontrol", label: "Teknik Kontrol", show: r === "admin" || r === "teknik" || r === "yonetici" },
+    { href: "/loglar", label: "Loglar", show: r === "admin" || r === "teknik" },
+    { href: "/yedekler", label: "Yedekler", show: r === "admin" || r === "teknik" },
+  ].filter((i) => i.show).map(({ href, label }) => ({ href, label }));
 
   const logoutMinutes = me.auto_logout_enabled ? (me.auto_logout_minutes ?? me.company.default_logout_minutes) : null;
   const author = (ann?.author as unknown as { full_name: string } | null)?.full_name;
@@ -32,7 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="text-xl font-bold">CRM</Link>
           <div className="flex-1"><NavLinks items={items} /></div>
           <div className="flex items-center gap-4 text-sm">
-            <span title="Okunmamış bildirim">🔔 {unread ?? 0}</span>
+            <Link href="/bildirimler" title="Bildirimler" className="text-slate-300 hover:text-white">
+              🔔 {unread ? <span className="rounded-full bg-red-500 px-1.5 text-xs text-white">{unread}</span> : 0}
+            </Link>
             <span className="text-slate-300">{me.full_name} / {roleLabel[me.role]}</span>
             <a href="/cikis" className="text-slate-300 hover:text-white">Çıkış</a>
           </div>

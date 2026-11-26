@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
 import { addInteraction, addSale, setActive, updateAssignment } from "./actions";
+import { addExpected } from "../../beklenen-satislar/actions";
+import { addMeeting } from "../../toplantilar/actions";
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -133,6 +135,37 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               </ul>
             ) : <p className="text-sm text-slate-500">Satış yok.</p>}
           </div>
+
+          <div className="card">
+            <h2 className="mb-3 text-lg font-semibold">Beklenen Satış Ekle</h2>
+            <ActionForm action={addExpected} submitLabel="Beklenen Satışa Ekle" className="space-y-3">
+              <input type="hidden" name="customer_id" value={c.id} />
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label">Beklenen tarih/saat</label><input type="datetime-local" name="expected_at" className="input" /></div>
+                <div><label className="label">Tahmini tutar (₺)</label><input name="amount" inputMode="decimal" className="input" /></div>
+                {staff && (
+                  <div className="col-span-2"><label className="label">Satışçı</label>
+                    <select name="seller_id" defaultValue={c.assigned_to ?? ""} className="input">
+                      {(sellers ?? []).map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                    </select></div>
+                )}
+              </div>
+              <input name="note" className="input" placeholder="Not (ör. maaş gününü bekliyor)" />
+            </ActionForm>
+          </div>
+
+          {(sales?.length ?? 0) > 0 && (
+            <div className="card">
+              <h2 className="mb-3 text-lg font-semibold">Toplantı Planla</h2>
+              <ActionForm action={addMeeting} submitLabel="Toplantıyı Plana Ekle" className="space-y-3">
+                <input type="hidden" name="customer_id" value={c.id} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="label">Tarih / saat</label><input type="datetime-local" name="scheduled_at" className="input" required /></div>
+                  <div><label className="label">Konu</label><input name="note" className="input" placeholder="Görüşülecek konu" /></div>
+                </div>
+              </ActionForm>
+            </div>
+          )}
 
           <div className="card">
             <h2 className="mb-3 text-lg font-semibold">Satış Ekle</h2>

@@ -29,5 +29,12 @@ export const getMe = cache(async (): Promise<Me> => {
   return data as unknown as Me;
 });
 
+/** Sayfayı yalnız verilen rollere aç; diğerlerini panele gönder. */
+export async function requireRole(roles: Role[]): Promise<Me> {
+  const me = await getMe();
+  if (!roles.includes(me.role)) redirect("/");
+  return me;
+}
+
 export const isStaff = (role: Role) => role !== "satisci";
 export const canManage = (role: Role) => role === "admin" || role === "yonetici";

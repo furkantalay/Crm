@@ -3,19 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { formNum, formStr } from "@/lib/data";
 
 export type ActionState = { ok?: string; error?: string } | null;
 
-const str = (f: FormData, k: string) => {
-  const v = f.get(k);
-  return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
-};
-const numOf = (f: FormData, k: string) => {
-  const v = str(f, k);
-  if (v == null) return null;
-  const n = Number(v.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-};
+const str = formStr;
+const numOf = formNum;
 
 export async function addInteraction(_: ActionState, form: FormData): Promise<ActionState> {
   const me = await getMe();

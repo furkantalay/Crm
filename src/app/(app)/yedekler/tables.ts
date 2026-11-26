@@ -1,0 +1,15 @@
+export const BACKUP_TABLES: Record<string, string> = {
+  customers: "Datalar",
+  interactions: "Görüşme geçmişi",
+  sales: "Satışlar",
+  sale_products: "Satış–eğitim bağlantıları",
+  expected_sales: "Beklenen satışlar",
+  meetings: "Toplantılar",
+  satisfaction_calls: "Memnuniyet aramaları",
+  ad_clients: "Reklam yönetimi",
+  profiles: "Kullanıcılar",
+  products: "Eğitimler",
+  lookups: "Listeler",
+  announcements: "Notlar",
+  audit_logs: "İşlem logları",
+};

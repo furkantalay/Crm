@@ -21,6 +21,11 @@ export default function LoginPage() {
       const { data, error: fnError } = await supabase.functions.invoke("auth-login", {
         body: { username, password, company: process.env.NEXT_PUBLIC_COMPANY_SLUG },
       });
+      if (data?.reset_token) {
+        // Eski şifre doğru ama kısa: yeni şifre belirleme ekranına
+        router.replace(`/sifre-belirle?t=${data.reset_token}&kisa=1`);
+        return;
+      }
       if (fnError || !data?.email) {
         let msg = "Kullanıcı adı veya şifre hatalı.";
         try {

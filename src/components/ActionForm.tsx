@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 
-type State = { ok?: string; error?: string } | null;
+type State = { ok?: string; error?: string; link?: string } | null;
 
 /** Server action formu: sonucu altında gösterir, başarıda formu temizler. */
 export default function ActionForm({
@@ -27,6 +27,10 @@ export default function ActionForm({
         {state?.ok && <span className="text-sm text-green-700">{state.ok}</span>}
         {state?.error && <span className="text-sm text-red-700">{state.error}</span>}
       </div>
+      {state?.link && (
+        <input readOnly value={state.link} onFocus={(e) => e.currentTarget.select()}
+               className="input mt-2 bg-green-50 font-mono text-xs" title="Kopyalayıp kişiye gönderin" />
+      )}
     </form>
   );
 }

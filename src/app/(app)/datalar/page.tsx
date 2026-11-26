@@ -45,7 +45,15 @@ export default async function DatalarPage({ searchParams }: { searchParams: SP }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-3xl font-bold">Datalar</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold">Datalar</h1>
+        {isStaff(me.role) && (
+          <div className="flex gap-2">
+            <Link href="/datalar/yeni" className="btn">+ Yeni Data</Link>
+            <Link href="/aktarim" className="btn-light">Excel Toplu Aktarım</Link>
+          </div>
+        )}
+      </div>
 
       {isStaff(me.role) && (
         <div className="flex flex-wrap gap-2">

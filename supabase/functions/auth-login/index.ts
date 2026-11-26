@@ -65,6 +65,17 @@ Deno.serve(async (req) => {
         console.warn("legacy-password-mismatch", p.username); // şifre loglanmaz
         return json({ error: "Kullanıcı adı veya şifre hatalı." }, 401);
       }
+      // Eski şifre doğru ama yeni sistem için çok kısaysa: kişiye yeni şifre belirleme bağlantısı ver
+      if (String(password).length < 8) {
+        const raw = [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, "0")).join("");
+        const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+        const hash = [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+        await fetch(`${URL_}/rest/v1/password_setup_tokens`, {
+          method: "POST", headers: h,
+          body: JSON.stringify({ user_id: p.id, token_hash: hash, expires_at: new Date(Date.now() + 30 * 60_000).toISOString() }),
+        });
+        return json({ reset_token: raw });
+      }
       const up = await fetch(`${URL_}/auth/v1/admin/users/${p.id}`, {
         method: "PUT", headers: h, body: JSON.stringify({ password }),
       });

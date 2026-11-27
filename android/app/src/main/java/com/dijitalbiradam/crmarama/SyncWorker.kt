@@ -9,6 +9,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         val prefs = Prefs(applicationContext)
         return try {
             prefs.lastResult = CallSync.run(applicationContext)
+            CallWatchService.start(applicationContext) // servis kapatıldıysa yeniden başlat
             Result.success()
         } catch (e: ApiException) {
             prefs.lastResult = "Hata: ${e.message}"

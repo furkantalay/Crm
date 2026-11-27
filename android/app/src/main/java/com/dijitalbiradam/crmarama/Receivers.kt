@@ -9,6 +9,7 @@ class CallStateReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.getStringExtra(TelephonyManager.EXTRA_STATE) == TelephonyManager.EXTRA_STATE_IDLE && Prefs(ctx).loggedIn) {
             SyncWorker.syncSoon(ctx)
+            CallWatchService.start(ctx)
         }
     }
 }
@@ -18,6 +19,7 @@ class BootReceiver : BroadcastReceiver() {
         if (Prefs(ctx).loggedIn) {
             SyncWorker.schedulePeriodic(ctx)
             SyncWorker.syncSoon(ctx, 30)
+            CallWatchService.start(ctx)
         }
     }
 }

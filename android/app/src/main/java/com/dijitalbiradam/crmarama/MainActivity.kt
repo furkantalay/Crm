@@ -32,11 +32,12 @@ class MainActivity : Activity() {
             setPadding((20 * dp).toInt(), (20 * dp).toInt(), (20 * dp).toInt(), (40 * dp).toInt())
         }
         setContentView(ScrollView(this).apply { addView(root) })
-        if (prefs.loggedIn) SyncWorker.schedulePeriodic(this)
+        if (prefs.loggedIn) { SyncWorker.schedulePeriodic(this); CallWatchService.start(this) }
     }
 
     override fun onResume() {
         super.onResume()
+        if (prefs.loggedIn) CallWatchService.start(this)
         render()
     }
 
@@ -162,9 +163,9 @@ class MainActivity : Activity() {
 
         root.addView(divider())
         root.addView(privacyNote())
-        root.addView(text("Uygulama kendi kendine çalışır; açık tutmanız gerekmez. Her görüşmeden birkaç saniye sonra ve ayrıca 15 dakikada bir gönderim yapar.", 13f, color = Color.parseColor("#64748B")))
+        root.addView(text("Uygulama kendi kendine çalışır; açık tutmanız gerekmez. Bildirim çubuğunda küçük bir \"CRM Arama açık\" bildirimi durur; bu, uygulamanın arka planda çalıştığını gösterir. Her görüşmeden birkaç saniye sonra ve ayrıca 15 dakikada bir gönderim yapar.", 13f, color = Color.parseColor("#64748B")))
         root.addView(button("Çıkış yap", false) {
-            SyncWorker.cancelAll(this); prefs.clear(); render()
+            SyncWorker.cancelAll(this); CallWatchService.stop(this); prefs.clear(); render()
         })
     }
 
@@ -187,12 +188,14 @@ class MainActivity : Activity() {
     }
 
     private fun askPermissions() {
-        requestPermissions(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE), 1)
+        val perms = mutableListOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE)
+        if (Build.VERSION.SDK_INT >= 33) perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        requestPermissions(perms.toTypedArray(), 1)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (CallSync.hasPermission(this)) SyncWorker.syncSoon(this, 1)
+        if (CallSync.hasPermission(this)) { SyncWorker.syncSoon(this, 1); CallWatchService.start(this) }
         else if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_CALL_LOG)) {
             Toast.makeText(this, "İzin kapalı. Uygulama ayarlarından \"Arama kayıtları\" iznini açın.", Toast.LENGTH_LONG).show()
             openAppSettings()

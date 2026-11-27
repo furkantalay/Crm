@@ -57,7 +57,10 @@ export default async function CallsPage({ searchParams }: { searchParams: SP }) 
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Aramalar</h1>
-        <Link href="/uygulama" className="btn-light">📱 Telefon uygulaması</Link>
+        <div className="flex gap-2">
+          {(me.role === "admin" || me.role === "yonetici") && <Link href="/aramalar/rapor" className="btn">📊 Arama raporu</Link>}
+          <Link href="/uygulama" className="btn-light">📱 Telefon uygulaması</Link>
+        </div>
       </div>
       <p className="text-sm text-slate-600">Telefonlardaki &quot;CRM Arama&quot; uygulamasından otomatik gelir. Yalnız CRM&apos;de kayıtlı numaralarla yapılan görüşmeler ve gelen aramalar kaydedilir; kişisel aramalar telefondan çıkmaz.</p>
 

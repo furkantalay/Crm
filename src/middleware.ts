@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith("/giris");
   // Şifre belirleme sayfası giriş durumundan bağımsız açılır
-  if (path.startsWith("/sifre-belirle")) return response;
+  if (path.startsWith("/sifre-belirle") || path === "/manifest.webmanifest") return response;
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

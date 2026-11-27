@@ -51,12 +51,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="bg-slate-900 text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <Link href="/" className="text-xl font-bold">CRM</Link>
-          <div className="flex-1"><NavLinks items={items} /></div>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="order-last w-full md:order-none md:w-auto md:flex-1"><NavLinks items={items} /></div>
+          <div className="ml-auto flex items-center gap-4 text-sm md:ml-0">
             <Link href="/bildirimler" title="Bildirimler" className="text-slate-300 hover:text-white">
               🔔 {unread ? <span className="rounded-full bg-red-500 px-1.5 text-xs text-white">{unread}</span> : 0}
             </Link>
-            <span className="text-slate-300">{me.full_name} / {roleLabel[me.role]}</span>
+            <span className="hidden text-slate-300 sm:inline">{me.full_name} / {roleLabel[me.role]}</span>
             <a href="/cikis" className="text-slate-300 hover:text-white">Çıkış</a>
           </div>
         </div>

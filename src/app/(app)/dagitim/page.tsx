@@ -3,21 +3,28 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { dateTime, num, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
-import { setFunnelAuto, setReceivesLeads } from "./actions";
+import { saveSpeed, setFunnelAuto, setReceivesLeads } from "./actions";
 
+type Speed = { user_id: string; full_name: string; assigned: number; touched: number; open_now: number; avg_min: number | null; median_min: number | null; within_seller_min: number; late: number };
+const DAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+const fmtMin = (m: number | null) => (m == null ? "—" : m < 60 ? `${Math.round(m)} dk` : `${Math.floor(m / 60)} sa ${Math.round(m % 60)} dk`);
 type Row = { user_id: string; full_name: string; receives_leads: boolean; online: boolean; leads_180: number; sales_180: number; conv: number | null; weight: number; today_count: number };
 
 export default async function DistributionPage() {
   const me = await requireRole(["admin", "yonetici"]);
   const supabase = await createClient();
   const todayStart = new Date(`${todayIst()}T00:00:00+03:00`).toISOString();
-  const [{ data: state, error }, { data: co }, { data: lastRow }, { data: recent }] = await Promise.all([
+  const weekAgo = new Date(Date.now() - 6 * 864e5).toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" });
+  const [{ data: state, error }, { data: co }, { data: lastRow }, { data: recent }, { data: speedRows }] = await Promise.all([
     supabase.rpc("lead_distribution_view"),
     supabase.from("companies").select("settings").eq("id", me.company_id).single(),
     supabase.from("funnel_rows").select("first_seen_at").eq("source", "canli").order("first_seen_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("customers").select("id, full_name, sector, created_at, assigned_to, extra, profiles:assigned_to(full_name)")
       .not("extra->funnel_row", "is", null).gte("created_at", todayStart).order("created_at", { ascending: false }).limit(100),
+    supabase.rpc("speed_stats", { p_from: weekAgo, p_to: todayIst() }),
   ]);
+  const speed = (speedRows ?? []) as Speed[];
+  const sp = ((co?.settings as Record<string, unknown> | null)?.speed ?? {}) as { seller_min?: number; manager_min?: number; start?: string; end?: string; days?: number[] };
   const rows = (state ?? []) as Row[];
   const active = rows.filter((r) => r.receives_leads);
   const others = rows.filter((r) => !r.receives_leads);
@@ -94,6 +101,46 @@ export default async function DistributionPage() {
           </div>
         </div>
       )}
+
+      <div className="card overflow-x-auto p-0">
+        <h2 className="p-4 pb-2 text-lg font-semibold">⏱ İlk temas hızı · son 7 gün</h2>
+        <p className="px-4 pb-2 text-sm text-slate-600">Data satışçıya atandıktan sonra ilk aramaya (ya da görüşme notuna) kadar geçen süre. {sp.seller_min ?? 5} dk içinde aranmazsa satışçıya, {sp.manager_min ?? 15} dk içinde aranmazsa yöneticilere bildirim gider (yalnız mesai içinde: {sp.start ?? "09:00"}–{sp.end ?? "19:00"}).</p>
+        <table className="w-full">
+          <thead className="bg-slate-50"><tr>
+            <th className="th">Satışçı</th><th className="th">Atanan</th><th className="th">Arandı</th><th className="th">Hâlâ aranmadı</th>
+            <th className="th">Ortalama</th><th className="th">Ortanca</th><th className="th">{sp.seller_min ?? 5} dk içinde</th>
+          </tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {speed.map((r) => (
+              <tr key={r.user_id}>
+                <td className="td font-medium">{r.full_name}</td>
+                <td className="td">{r.assigned}</td>
+                <td className="td">{r.touched}</td>
+                <td className={`td ${r.open_now ? "font-semibold text-red-700" : ""}`}>{r.open_now}</td>
+                <td className="td">{fmtMin(r.avg_min)}</td>
+                <td className="td">{fmtMin(r.median_min)}</td>
+                <td className="td">{r.assigned ? `%${Math.round((r.within_seller_min / r.assigned) * 100)}` : "—"}</td>
+              </tr>
+            ))}
+            {!speed.length && <tr><td className="td py-6 text-center text-slate-500" colSpan={7}>Son 7 günde atanan data yok. Ölçüm, yeni CRM&apos;de atanan datalarla başlar.</td></tr>}
+          </tbody>
+        </table>
+        {me.role === "admin" && (
+          <div className="border-t border-slate-100 p-4">
+            <ActionForm action={saveSpeed} submitLabel="Kaydet" resetOnSuccess={false} className="flex flex-wrap items-end gap-3 text-sm">
+              <div><label className="label">Satışçıya uyarı (dk)</label><input name="seller_min" defaultValue={sp.seller_min ?? 5} inputMode="numeric" className="input w-24" /></div>
+              <div><label className="label">Yöneticiye uyarı (dk)</label><input name="manager_min" defaultValue={sp.manager_min ?? 15} inputMode="numeric" className="input w-24" /></div>
+              <div><label className="label">Mesai başı</label><input type="time" name="start" defaultValue={sp.start ?? "09:00"} className="input" /></div>
+              <div><label className="label">Mesai sonu</label><input type="time" name="end" defaultValue={sp.end ?? "19:00"} className="input" /></div>
+              <div className="flex gap-2 pb-2">
+                {DAYS.map((d, i) => (
+                  <label key={d} className="flex items-center gap-1"><input type="checkbox" name={`d${i + 1}`} value="1" defaultChecked={(sp.days ?? [1, 2, 3, 4, 5, 6]).includes(i + 1)} />{d}</label>
+                ))}
+              </div>
+            </ActionForm>
+          </div>
+        )}
+      </div>
 
       <div className="card overflow-x-auto p-0">
         <h2 className="p-4 pb-2 text-lg font-semibold">Bugün formdan gelenler ({recent?.length ?? 0})</h2>

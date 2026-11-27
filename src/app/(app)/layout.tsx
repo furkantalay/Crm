@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dateTime, roleLabel } from "@/lib/format";
 import NavLinks from "@/components/NavLinks";
 import IdleLogout from "@/components/IdleLogout";
+import NotificationWatcher from "@/components/NotificationWatcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const me = await getMe();
@@ -19,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const staff = r !== "satisci";
   const manager = r === "admin" || r === "yonetici";
   const items = [
+    { href: "/bugun", label: "Bugünüm", show: r === "satisci" },
     { href: "/", label: "Panel", show: true },
     { href: "/ekip", label: "Ekip Durumu", show: manager },
     { href: "/dagitim", label: "Data Dağıtımı", show: manager },
@@ -48,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen">
       <IdleLogout minutes={logoutMinutes} />
+      <NotificationWatcher />
       <header className="bg-slate-900 text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <Link href="/" className="text-xl font-bold">CRM</Link>

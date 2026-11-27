@@ -47,6 +47,7 @@ export default async function PanelPage() {
   type Mine = { total: number | null; sale_count: number | null; tier_kind: string | null; tier_value: number | null; monthly_commission: number | null;
     daily_commission: number | null; daily_bonus_days: number | null; next_tier_min: number | null; to_next_tier: number | null;
     today_total: number | null; today_commission: number | null; next_daily_min: number | null };
+  const todayCount = me.role === "satisci" ? (((await supabase.rpc("my_day", { p_user: me.id })).data ?? []) as { kind: string }[]) : null;
   const mine = me.role === "satisci" ? ((await supabase.rpc("my_commission", { p_month: monthStart })).data as Mine[] | null)?.[0] ?? null : null;
 
   return (
@@ -67,6 +68,22 @@ export default async function PanelPage() {
           <Stat label="Admin Özel Reklam" value={tl(adPrivSum)} sub={`${adPrivate.length} kayıt / genel toplama dahil değil`} accent />
         )}
       </div>
+
+      {todayCount && (
+        <Link href="/bugun" className={`card flex items-center justify-between border-l-4 ${todayCount.some((t) => t.kind === "yeni") ? "border-red-500" : "border-blue-500"} hover:bg-slate-50`}>
+          <div>
+            <div className="text-lg font-semibold">📋 Bugün {todayCount.length} iş var</div>
+            <div className="text-sm text-slate-600">
+              {["yeni", "cevapsiz", "toplanti", "beklenen", "gecikmis", "takip"].map((k) => {
+                const n = todayCount.filter((t) => t.kind === k).length;
+                const label = { yeni: "yeni data", cevapsiz: "geri dönülecek", toplanti: "toplantı", beklenen: "beklenen satış", gecikmis: "gecikmiş takip", takip: "bugün aranacak" }[k];
+                return n ? <span key={k} className="mr-3">{n} {label}</span> : null;
+              })}
+            </div>
+          </div>
+          <span className="text-blue-700">Listeye git →</span>
+        </Link>
+      )}
 
       {mine && (
         <div className="card border-l-4 border-green-600">

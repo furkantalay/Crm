@@ -20,7 +20,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: SP }
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Raporlama Paneli</h1>
-        <a href={`/raporlar/csv?${qs}`} className="btn-light">Excel&apos;e aktar (CSV)</a>
+        <div className="flex gap-2">
+          {(me.role === "admin" || me.role === "yonetici") && <Link href="/raporlar/huni" className="btn">📉 Satış hunisi</Link>}
+          {(me.role === "admin" || me.role === "yonetici") && <Link href="/aramalar/rapor" className="btn-light">📊 Arama raporu</Link>}
+          <a href={`/raporlar/csv?${qs}`} className="btn-light">Excel&apos;e aktar (CSV)</a>
+        </div>
       </div>
 
       <form className="card grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8" action="/raporlar">

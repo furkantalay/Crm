@@ -61,3 +61,15 @@ export async function saveManagerPerms(_: S, f: FormData): Promise<S> {
   revalidatePath("/", "layout");
   return { ok: "Kaydedildi. Yöneticinin ekranı bir sonraki sayfa açılışında güncellenir." };
 }
+
+export async function saveTarget(_: S, f: FormData): Promise<S> {
+  const me = await requireRole(["admin"]);
+  const supabase = await createClient();
+  const v = Number(String(f.get("monthly_target") ?? "").replace(/\./g, "").replace(",", "."));
+  const { data: co } = await supabase.from("companies").select("settings").eq("id", me.company_id).single();
+  const settings = { ...(co?.settings ?? {}), monthly_target: Number.isFinite(v) && v > 0 ? Math.round(v) : 0 };
+  const { error } = await supabase.from("companies").update({ settings }).eq("id", me.company_id);
+  if (error) return { error: "Kaydedilemedi: " + error.message };
+  revalidatePath("/ayarlar");
+  return { ok: "Kaydedildi." };
+}

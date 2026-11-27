@@ -2,7 +2,7 @@ import Link from "next/link";
 import { can, PERMS, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import ActionForm from "@/components/ActionForm";
-import { addLookup, saveCompany, updateLookup, saveManagerPerms } from "./actions";
+import { addLookup, saveCompany, updateLookup, saveManagerPerms, saveTarget } from "./actions";
 
 const CATS: Record<string, string> = {
   data_type: "Data tipleri", contact_status: "Görüşme durumları", sale_source: "Satış kaynakları",
@@ -31,6 +31,16 @@ export default async function SettingsPage() {
           </ActionForm>
         ) : <p className="text-sm">Genel süre: <b>{company?.default_logout_minutes} dk</b> (yalnız admin değiştirebilir)</p>}
       </div>
+
+      {me.role === "admin" && (
+        <div className="card">
+          <h2 className="mb-1 text-lg font-semibold">Aylık satış hedefi</h2>
+          <p className="mb-3 text-sm text-slate-600">Ofis ekranında ilerleme çubuğu olarak görünür (<a href="/ekran" target="_blank" className="underline">ofis ekranını aç</a>).</p>
+          <ActionForm action={saveTarget} submitLabel="Kaydet" resetOnSuccess={false} className="flex flex-wrap items-end gap-3">
+            <div><label className="label">Hedef (₺)</label><input name="monthly_target" inputMode="numeric" defaultValue={String((me.company?.settings as Record<string, unknown> | null)?.monthly_target ?? "")} className="input w-40" placeholder="1500000" /></div>
+          </ActionForm>
+        </div>
+      )}
 
       {me.role === "admin" && (
         <div className="card">

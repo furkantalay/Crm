@@ -52,7 +52,10 @@ export default async function PanelPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">{isStaff(me.role) ? "Genel Panel" : "Panelim"}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold">{isStaff(me.role) ? "Genel Panel" : "Panelim"}</h1>
+        {manager && <div className="flex gap-2"><a href="/ozet" className="btn-light">☀️ Günün özeti</a><a href="/ekran" target="_blank" className="btn-light">📺 Ofis ekranı</a></div>}
+      </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Stat label="Toplam Data" value={num(total.count)} sub="Pasife alınanlar hariç" />

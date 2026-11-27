@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
 import { ScoreBadge } from "@/components/ScoreBadge";
-import { addInteraction, addSale, aiSummarize, cancelPaymentLink, createPaymentLink, setActive, updateAssignment } from "./actions";
+import VoiceNote from "@/components/VoiceNote";
+import { addInteraction, addSale, aiSummarize, voiceNote, cancelPaymentLink, createPaymentLink, setActive, updateAssignment } from "./actions";
 import { addExpected } from "../../beklenen-satislar/actions";
 import { shareCustomer } from "../../mesajlar/actions";
 import { addMeeting } from "../../toplantilar/actions";
@@ -111,7 +112,10 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="card lg:col-span-2">
-          <h2 className="mb-3 text-lg font-semibold">Görüşme Ekle</h2>
+          <h2 className="mb-1 text-lg font-semibold">🎙 Sesli not</h2>
+          <p className="mb-3 text-sm text-slate-500">Görüşme biter bitmez basın, ne konuştuğunuzu söyleyin.</p>
+          <VoiceNote customerId={c.id} action={voiceNote} />
+          <h2 className="mb-3 mt-6 border-t pt-4 text-lg font-semibold">Görüşme Ekle</h2>
           <ActionForm action={addInteraction} submitLabel="Görüşmeyi Kaydet" className="space-y-3">
             <input type="hidden" name="customer_id" value={c.id} />
             <textarea name="note" rows={3} className="input" placeholder="Görüşme notu" />

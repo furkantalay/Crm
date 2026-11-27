@@ -131,3 +131,27 @@ export async function aiSummarize(_: ActionState, form: FormData): Promise<Actio
   revalidatePath(`/datalar/${customerId}`);
   return { ok: "Özet güncellendi." };
 }
+
+export async function voiceNote(_: ActionState, form: FormData): Promise<ActionState> {
+  const me = await getMe();
+  const supabase = await createClient();
+  const customerId = Number(form.get("customer_id"));
+  const text = str(form, "text");
+  if (!text) return { error: "Önce konuşun ya da yazın." };
+  const { data: statuses } = await supabase.from("lookups").select("id, label").eq("category", "contact_status").eq("is_active", true);
+  const { data: ai, error: aiErr } = await supabase.functions.invoke("ai", {
+    body: { action: "note", customer_id: customerId, text, statuses: (statuses ?? []).map((s) => ({ label: s.label })) },
+  });
+  const ok = !aiErr && ai?.ok;
+  const statusId = ok && ai.status ? (statuses ?? []).find((s) => s.label === ai.status)?.id ?? null : null;
+  const { error } = await supabase.from("interactions").insert({
+    company_id: me.company_id, customer_id: customerId, user_id: me.id,
+    note: ok ? `🎙 ${ai.note}` : `🎙 ${text}`, status_id: statusId, channel: "Telefon",
+    next_followup_at: ok && ai.followup_at ? `${ai.followup_at}:00+03:00` : null,
+  });
+  if (error) return { error: "Kaydedilemedi: " + error.message };
+  revalidatePath(`/datalar/${customerId}`);
+  if (!ok) return { ok: "Not olduğu gibi kaydedildi (yapay zekâ şu an yanıt vermedi)." };
+  const extra = [ai.status && `durum: ${ai.status}`, ai.followup_at && `geri arama: ${ai.followup_at.replace("T", " ")}`].filter(Boolean).join(" · ");
+  return { ok: `Kaydedildi${extra ? ` (${extra})` : ""}.` };
+}

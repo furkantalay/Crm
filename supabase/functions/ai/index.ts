@@ -1,6 +1,7 @@
 // Yapay zekâ (Claude)
 //  action "ping"    (x-sync-token): anahtar çalışıyor mu
 //  action "score"   (x-sync-token, cron 2 dk): sıradaki dataları toplu puanlar (1-100, sıcak/ılık/soğuk, sektör grubu, gerekçe, sonraki adım)
+//  action "note"    (oturum): { customer_id, text, statuses } → sesli notu düzenli nota çevirir (durum, geri arama zamanı), puanı günceller
 //  action "summary" (oturum): { customer_id } → not geçmişi özeti + puan + sonraki adım (yalnızca datayı görebilen kullanıcı)
 // Modele ad, telefon, e-posta GÖNDERİLMEZ.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, queued: ids.length, scored: n });
     }
 
-    if (action === "summary") {
+    if (action === "summary" || action === "note") {
       const me = await caller(req);
       if (!me) return json({ error: "Oturum gerekli." }, 401);
       const id = Number(body.customer_id);
@@ -112,6 +113,29 @@ Deno.serve(async (req) => {
       const vis = cr.ok ? await cr.json() : [];
       if (!vis.length) return json({ error: "Bu dataya erişiminiz yok." }, 403);
       const [f] = await rpc("ai_features", { p_ids: [id] });
+
+      if (action === "note") {
+        const text = String(body.text ?? "").slice(0, 4000).trim();
+        if (!text) return json({ error: "Not boş." }, 400);
+        const statuses = ((body.statuses ?? []) as { label: string }[]).map((x) => x.label).filter(Boolean);
+        const now = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul", weekday: "long", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+        const sys = `${CONTEXT}
+Satışçı görüşmeden hemen sonra sesli not bıraktı (konuşma tanıma ile yazıya döküldü, yazım hataları olabilir). Görevin:
+- note: notu kısa, düzgün Türkçe ile yeniden yaz (satışçının ağzından, 1-3 cümle). Uydurma bilgi ekleme; söylenmeyeni yazma. Fiyat, tarih, itiraz gibi ayrıntıları koru.
+- status: aşağıdaki listeden nota en uygun durumu seç; emin değilsen boş bırak. Liste: ${JSON.stringify(statuses)}
+- followup_at: notta tekrar arama/görüşme zamanı geçiyorsa "YYYY-MM-DDTHH:MM" (İstanbul saati). Şu an: ${now}. Saat söylenmediyse 11:00 kullan. Yoksa boş bırak.
+- score/label/group/reason/next/summary: yeni notu da hesaba katarak güncelle.
+save_note aracıyla kaydet.`;
+        const props = { ...ITEM.properties, summary: { type: "string" }, note: { type: "string" }, status: { type: "string" }, followup_at: { type: "string" } } as Record<string, unknown>;
+        delete props.id;
+        const { input: r } = await claude(sys, JSON.stringify({ ...f, yeni_sesli_not: text }), 1500,
+          { name: "save_note", schema: { type: "object", properties: props, required: ["note", "score", "label", "group", "reason", "next", "summary"] } });
+        if (!r?.note) throw new Error("Yapay zekâ yanıtı okunamadı");
+        await rpc("ai_save", { p_rows: [{ id, score: r.score, label: r.label, group: r.group, reason: r.reason, next: r.next, summary: r.summary, by: me.id }] });
+        const status = statuses.includes(r.status) ? r.status : null;
+        const fu = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(r.followup_at ?? "") ? r.followup_at : null;
+        return json({ ok: true, note: r.note, status, followup_at: fu, next: r.next });
+      }
       const sys = `${CONTEXT}\nAyrıca "summary": satışçının aramadan önce 10 saniyede okuyacağı 2-4 cümlelik özet (ne istedi, ne konuşuldu, itirazı ne, nerede kalındı). Not yoksa bunu söyle. save_summary aracıyla kaydet.`;
       const props = { ...ITEM.properties, summary: { type: "string" } } as Record<string, unknown>;
       delete props.id;

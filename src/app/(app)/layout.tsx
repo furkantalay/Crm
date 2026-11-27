@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const items = [
     { href: "/", label: "Panel", show: true },
     { href: "/ekip", label: "Ekip Durumu", show: manager },
+    { href: "/dagitim", label: "Data Dağıtımı", show: manager },
     { href: "/datalar", label: "Datalar", show: true },
     { href: "/satislar", label: "Satışlar", show: true },
     { href: "/aramalar", label: "Aramalar", show: true },

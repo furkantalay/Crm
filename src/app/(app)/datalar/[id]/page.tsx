@@ -5,7 +5,8 @@ import { can, getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
-import { addInteraction, addSale, cancelPaymentLink, createPaymentLink, setActive, updateAssignment } from "./actions";
+import { ScoreBadge } from "@/components/ScoreBadge";
+import { addInteraction, addSale, aiSummarize, cancelPaymentLink, createPaymentLink, setActive, updateAssignment } from "./actions";
 import { addExpected } from "../../beklenen-satislar/actions";
 import { shareCustomer } from "../../mesajlar/actions";
 import { addMeeting } from "../../toplantilar/actions";
@@ -18,7 +19,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const { data: c } = await supabase.from("v_customer_list").select("*").eq("id", id).maybeSingle();
   if (!c) notFound();
 
-  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }, { data: links }, { data: myRooms }] = await Promise.all([
+  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }, { data: links }, { data: myRooms }, { data: ai }] = await Promise.all([
     supabase.from("customers").select("email, extra, created_at").eq("id", id).single(),
     supabase.from("interactions").select("id, note, channel, created_at, next_followup_at, user:profiles(full_name), status:lookups(label)")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(200),
@@ -31,6 +32,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     supabase.from("payment_links").select("id, amount, description, url, status, created_at, paid_at, error")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(20),
     supabase.rpc("chat_my_rooms"),
+    supabase.from("customer_ai").select("score, label, grp, reason, next_step, summary, scored_at, summarized_at").eq("customer_id", id).maybeSingle(),
   ]);
   const L = (cat: string) => (lookups ?? []).filter((l) => l.category === cat);
   const extra = (raw?.extra ?? {}) as Record<string, string>;
@@ -48,6 +50,29 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           <span className="pill">{c.data_type ?? "-"}</span>
           <span className={`pill ${c.status_is_won ? "bg-green-100 text-green-800" : ""}`}>{c.status ?? "-"}</span>
           {!c.is_active && <span className="pill bg-red-100 text-red-800">Pasif</span>}
+        </div>
+      </div>
+
+      <div className="card border-l-4 border-violet-500">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold">🤖 Yapay zekâ</h2>
+              <ScoreBadge score={ai?.score} label={ai?.label} big />
+              {ai?.grp && <span className="pill">{ai.grp}</span>}
+            </div>
+            {ai ? (
+              <>
+                {ai.summary && <p className="text-slate-800">{ai.summary}</p>}
+                {ai.reason && <p className="text-slate-600">{ai.reason}</p>}
+                {ai.next_step && <p><span className="font-medium">Sonraki adım:</span> {ai.next_step}</p>}
+                <p className="text-xs text-slate-400">Güncelleme: {dateTime(ai.summarized_at ?? ai.scored_at)} · Yapay zekâ önerisidir, son karar sizin.</p>
+              </>
+            ) : <p className="text-slate-500">Henüz puanlanmadı. Aramadan önce özet almak için butona basın.</p>}
+          </div>
+          <ActionForm action={aiSummarize} submitLabel={ai?.summary ? "🔄 Özeti yenile" : "✨ Özetle"} resetOnSuccess={false}>
+            <input type="hidden" name="customer_id" value={c.id} />
+          </ActionForm>
         </div>
       </div>
 

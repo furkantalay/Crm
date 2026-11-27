@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import { getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { dateTime, num } from "@/lib/format";
@@ -30,9 +31,9 @@ export default async function DatalarPage({ searchParams }: { searchParams: SP }
     const term = sp.q.replace(/[,()*%]/g, " ").trim();
     if (term) q = q.or(`full_name.ilike.*${term}*,phone.ilike.*${term}*,last_note.ilike.*${term}*`);
   }
-  const sort = sp.sirala === "islem" ? "last_action_at" : "applied_at";
-  q = q.order("is_priority", { ascending: false })
-       .order(sort, { ascending: false, nullsFirst: false })
+  const sort = sp.sirala === "islem" ? "last_action_at" : sp.sirala === "puan" ? "ai_score" : "applied_at";
+  if (sp.sirala !== "puan") q = q.order("is_priority", { ascending: false });
+  q = q.order(sort, { ascending: false, nullsFirst: false })
        .range((page - 1) * PAGE, page * PAGE - 1);
   const { data: rows, count, error } = await q;
 
@@ -80,7 +81,7 @@ export default async function DatalarPage({ searchParams }: { searchParams: SP }
         <div><label className="label">Başvuru bitiş</label><input type="date" name="bit" defaultValue={sp.bit} className="input" /></div>
         <div><label className="label">Sırala</label>
           <select name="sirala" defaultValue={sp.sirala ?? ""} className="input">
-            <option value="">Başvuru tarihi</option><option value="islem">Son işlem</option></select></div>
+            <option value="">Başvuru tarihi</option><option value="islem">Son işlem</option><option value="puan">🤖 Yapay zekâ puanı</option></select></div>
         <div className="flex items-end gap-2">
           <button className="btn flex-1">Filtrele</button>
           <Link href="/datalar" className="btn-light">Temizle</Link>
@@ -100,7 +101,7 @@ export default async function DatalarPage({ searchParams }: { searchParams: SP }
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>
-              <th className="th">İsim</th><th className="th">Telefon</th><th className="th">Başvuru</th>
+              <th className="th">Puan</th><th className="th">İsim</th><th className="th">Telefon</th><th className="th">Başvuru</th>
               <th className="th">Data Tipi</th><th className="th">Sektör</th>
               {isStaff(me.role) && <th className="th">Satışçı</th>}
               <th className="th">Görüşme Notu</th><th className="th">Durum</th><th className="th">Son İşlem</th>
@@ -109,6 +110,7 @@ export default async function DatalarPage({ searchParams }: { searchParams: SP }
           <tbody className="divide-y divide-slate-100">
             {(rows ?? []).map((r) => (
               <tr key={r.id} className={r.is_priority ? "bg-amber-50" : "hover:bg-slate-50"}>
+                <td className="td"><ScoreBadge score={r.ai_score} label={r.ai_label} /></td>
                 <td className="td"><Link href={`/datalar/${r.id}`} className="font-medium text-blue-700 hover:underline">{r.full_name}</Link></td>
                 <td className="td whitespace-nowrap">{r.phone}</td>
                 <td className="td whitespace-nowrap">{dateTime(r.applied_at)}</td>
@@ -120,7 +122,7 @@ export default async function DatalarPage({ searchParams }: { searchParams: SP }
                 <td className="td whitespace-nowrap">{dateTime(r.last_action_at)}</td>
               </tr>
             ))}
-            {rows?.length === 0 && <tr><td className="td py-8 text-center text-slate-500" colSpan={9}>Kayıt bulunamadı.</td></tr>}
+            {rows?.length === 0 && <tr><td className="td py-8 text-center text-slate-500" colSpan={10}>Kayıt bulunamadı.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import { getMe } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { tl } from "@/lib/format";
@@ -33,6 +34,11 @@ export default async function TodayPage({ searchParams }: { searchParams: SP }) 
   const items = (data ?? []) as Item[];
   const whoName = who === me.id ? null : (sellers ?? []).find((s: { id: string }) => s.id === who)?.full_name;
   const total = items.length;
+  const ids = [...new Set(items.map((i) => i.customer_id))];
+  const { data: aiRows } = ids.length
+    ? await supabase.from("customer_ai").select("customer_id, score, label, next_step").in("customer_id", ids)
+    : { data: [] as { customer_id: number; score: number; label: string; next_step: string }[] };
+  const ai = new Map((aiRows ?? []).map((a) => [a.customer_id, a]));
 
   return (
     <div className="space-y-4">
@@ -52,7 +58,9 @@ export default async function TodayPage({ searchParams }: { searchParams: SP }) 
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
 
       {GROUPS.map((g) => {
-        const list = items.filter((i) => i.kind === g.kind).sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
+        const list = items.filter((i) => i.kind === g.kind).sort((a, b) => g.kind === "yeni"
+          ? (ai.get(b.customer_id)?.score ?? 0) - (ai.get(a.customer_id)?.score ?? 0)
+          : (a.at ?? "").localeCompare(b.at ?? ""));
         if (!list.length) return null;
         return (
           <div key={g.kind} className={`card border-l-4 p-0 ${g.cls}`}>
@@ -63,7 +71,9 @@ export default async function TodayPage({ searchParams }: { searchParams: SP }) 
             <ul className="divide-y divide-slate-100">
               {list.map((i) => (
                 <li key={`${g.kind}-${i.customer_id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+                  <ScoreBadge score={ai.get(i.customer_id)?.score} label={ai.get(i.customer_id)?.label} />
                   <Link href={`/datalar/${i.customer_id}`} className="font-medium text-blue-700 hover:underline">{i.customer_name}</Link>
+                  {ai.get(i.customer_id)?.next_step && <span className="text-xs text-violet-700">💡 {ai.get(i.customer_id)?.next_step}</span>}
                   <a href={`tel:${i.phone}`} className="rounded-md bg-green-50 px-2 py-0.5 text-sm font-medium text-green-800 hover:bg-green-100">📞 {i.phone}</a>
                   {i.amount != null && <span className="text-sm font-semibold">{tl(i.amount)}</span>}
                   {i.detail && <span className="text-sm text-slate-600">{i.detail}</span>}

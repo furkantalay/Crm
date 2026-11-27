@@ -121,3 +121,13 @@ export async function cancelPaymentLink(_: LinkState, form: FormData): Promise<L
   revalidatePath(`/datalar/${Number(form.get("customer_id"))}`);
   return { ok: "İptal edildi." };
 }
+
+export async function aiSummarize(_: ActionState, form: FormData): Promise<ActionState> {
+  await getMe();
+  const supabase = await createClient();
+  const customerId = Number(form.get("customer_id"));
+  const { data, error } = await supabase.functions.invoke("ai", { body: { action: "summary", customer_id: customerId } });
+  if (error || !data?.ok) return { error: await fnError(error, "Yapay zekâ şu an yanıt vermedi, biraz sonra tekrar deneyin.") };
+  revalidatePath(`/datalar/${customerId}`);
+  return { ok: "Özet güncellendi." };
+}

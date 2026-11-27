@@ -90,3 +90,34 @@ export async function setActive(_: ActionState, form: FormData): Promise<ActionS
   revalidatePath(`/datalar/${customerId}`);
   return { ok: active ? "Data tekrar aktif." : "Data pasife alındı." };
 }
+
+type LinkState = { ok?: string; error?: string; link?: string } | null;
+
+async function fnError(error: unknown, fallback: string) {
+  try { const b = await (error as { context?: Response })?.context?.json(); if (b?.error) return b.error as string; } catch {}
+  return fallback;
+}
+
+export async function createPaymentLink(_: LinkState, form: FormData): Promise<LinkState> {
+  await getMe();
+  const supabase = await createClient();
+  const customerId = Number(form.get("customer_id"));
+  const amount = numOf(form, "amount");
+  if (!amount || amount <= 0) return { error: "Tutar girin." };
+  const { data, error } = await supabase.functions.invoke("iyzico-link", {
+    body: { action: "create", customer_id: customerId, amount, product_ids: form.getAll("product_ids").map(String).filter(Boolean),
+            description: str(form, "description") },
+  });
+  if (error || !data?.url) return { error: await fnError(error, "Bağlantı oluşturulamadı.") };
+  revalidatePath(`/datalar/${customerId}`);
+  return { ok: "Bağlantı hazır. Kopyalayıp müşteriye gönderin; ödeme gelince satış kendiliğinden girilir.", link: data.url };
+}
+
+export async function cancelPaymentLink(_: LinkState, form: FormData): Promise<LinkState> {
+  await getMe();
+  const supabase = await createClient();
+  const { error } = await supabase.functions.invoke("iyzico-link", { body: { action: "cancel", id: Number(form.get("id")) } });
+  if (error) return { error: await fnError(error, "İptal edilemedi.") };
+  revalidatePath(`/datalar/${Number(form.get("customer_id"))}`);
+  return { ok: "İptal edildi." };
+}

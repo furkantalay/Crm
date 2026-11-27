@@ -5,7 +5,7 @@ import { can, getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
-import { addInteraction, addSale, setActive, updateAssignment } from "./actions";
+import { addInteraction, addSale, cancelPaymentLink, createPaymentLink, setActive, updateAssignment } from "./actions";
 import { addExpected } from "../../beklenen-satislar/actions";
 import { addMeeting } from "../../toplantilar/actions";
 
@@ -17,7 +17,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const { data: c } = await supabase.from("v_customer_list").select("*").eq("id", id).maybeSingle();
   if (!c) notFound();
 
-  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }] = await Promise.all([
+  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }, { data: links }] = await Promise.all([
     supabase.from("customers").select("email, extra, created_at").eq("id", id).single(),
     supabase.from("interactions").select("id, note, channel, created_at, next_followup_at, user:profiles(full_name), status:lookups(label)")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(200),
@@ -27,6 +27,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     supabase.from("profiles").select("id, full_name").eq("role", "satisci").eq("is_active", true).order("full_name"),
     supabase.from("v_call_list").select("id, direction, started_at, duration_sec, user_name")
       .eq("customer_id", id).order("started_at", { ascending: false }).limit(100),
+    supabase.from("payment_links").select("id, amount, description, url, status, created_at, paid_at, error")
+      .eq("customer_id", id).order("created_at", { ascending: false }).limit(20),
   ]);
   const L = (cat: string) => (lookups ?? []).filter((l) => l.category === cat);
   const extra = (raw?.extra ?? {}) as Record<string, string>;
@@ -186,6 +188,48 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               </ActionForm>
             </div>
           )}
+
+          <div className="card border-l-4 border-green-500">
+            <h2 className="mb-1 text-lg font-semibold">💳 Ödeme Bağlantısı (iyzico)</h2>
+            <p className="mb-3 text-xs text-slate-500">Müşteriye gönderilecek tek kullanımlık ödeme sayfası. Kartla öder (taksit seçebilir); ödeme gelince satış bu karta kendiliğinden girilir, size bildirim düşer.</p>
+            <ActionForm action={createPaymentLink} submitLabel="Bağlantı oluştur" className="space-y-3">
+              <input type="hidden" name="customer_id" value={c.id} />
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label">Tutar (₺)</label><input name="amount" inputMode="decimal" className="input" required /></div>
+                <div><label className="label">Açıklama (isteğe bağlı)</label><input name="description" className="input" placeholder="Boşsa seçilen eğitim" /></div>
+              </div>
+              <div><label className="label">Eğitim / paket</label>
+                <div className="grid grid-cols-1 gap-1 rounded-lg border border-slate-200 p-2 text-sm md:grid-cols-2">
+                  {(products ?? []).map((p) => (
+                    <label key={p.id} className="flex items-center gap-2"><input type="checkbox" name="product_ids" value={p.id} /><span>{p.name}</span></label>
+                  ))}
+                </div></div>
+            </ActionForm>
+            {!!links?.length && (
+              <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100 text-sm">
+                {links.map((l) => (
+                  <li key={l.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <b>{tl(l.amount)}</b>
+                    <span className="text-slate-600">{l.description}</span>
+                    {l.status === "bekliyor" && <span className="pill bg-amber-100 text-amber-800">ödeme bekleniyor</span>}
+                    {l.status === "odendi" && <span className="pill bg-green-100 text-green-800">ödendi {l.paid_at ? dateTime(l.paid_at) : ""}</span>}
+                    {l.status === "iptal" && <span className="pill">iptal</span>}
+                    {l.status === "hata" && <span className="pill bg-red-100 text-red-800" title={l.error ?? ""}>oluşturulamadı</span>}
+                    <span className="text-xs text-slate-500">{dateTime(l.created_at)}</span>
+                    {l.status === "bekliyor" && l.url && (
+                      <span className="ml-auto flex items-center gap-2">
+                        <a href={`https://wa.me/${c.phone_norm ? "90" + c.phone_norm : ""}?text=${encodeURIComponent(`Merhaba ${c.full_name}, ödeme bağlantınız: ${l.url}`)}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-green-700 hover:underline">WhatsApp&apos;ta gönder</a>
+                        <a href={l.url} target="_blank" rel="noreferrer" className="text-xs text-blue-700 hover:underline">Aç</a>
+                        <ActionForm action={cancelPaymentLink} submitLabel="İptal" resetOnSuccess={false} confirm="Bağlantı iptal edilsin mi?">
+                          <input type="hidden" name="id" value={l.id} /><input type="hidden" name="customer_id" value={c.id} />
+                        </ActionForm>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div className="card">
             <h2 className="mb-3 text-lg font-semibold">Satış Ekle</h2>

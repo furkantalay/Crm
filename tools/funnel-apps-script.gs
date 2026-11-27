@@ -42,7 +42,7 @@ function crmDuzenleme(e) {
 }
 
 function gonder_(sh, ilk, son) {
-  const degerler = sh.getRange(ilk, 1, son - ilk + 1, 9).getDisplayValues();
+  const degerler = sh.getRange(ilk, 1, son - ilk + 1, 19).getDisplayValues();
   const rows = degerler.map(function (hucre, i) {
     return { sheet: SAYFA, row: ilk + i, cells: hucre };
   }).filter(function (r) { return r.cells.join('').trim() !== ''; });

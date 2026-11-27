@@ -56,6 +56,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           <p><span className="text-slate-500">Sektör:</span> {c.sector ?? "-"}</p>
           {extra.problem && <p><span className="text-slate-500">Sorun / ihtiyaç:</span> {extra.problem}</p>}
           {extra.interest_training && <p><span className="text-slate-500">İlgilendiği eğitim:</span> {extra.interest_training}</p>}
+          {isStaff(me.role) && (() => { const ad = (raw?.extra as Record<string, unknown> | null)?.ad as Record<string, string> | undefined;
+            return ad ? <p><span className="text-slate-500">Reklam:</span> {[ad.campaign, ad.adset, ad.ad_name].filter(Boolean).join(" › ") || ad.source}</p> : null; })()}
           {extra.assignment_note && <p><span className="text-slate-500">Atama notu:</span> {extra.assignment_note}</p>}
           <p><span className="text-slate-500">Son işlem:</span> {dateTime(c.last_action_at)}</p>
 

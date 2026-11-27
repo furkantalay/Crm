@@ -32,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/reklam-yonetimi", label: "Reklam Yönetimi", show: can(me, "ads") },
     { href: "/raporlar", label: "Raporlar", show: staff },
     { href: "/primler", label: "Primler", show: manager && can(me, "prim") },
-    { href: "/iyzico", label: "iyzico", show: (r === "admin" || r === "yonetici" || r === "dataci") && can(me, "net") },
+    { href: "/iyzico", label: "iyzico", show: (r === "admin" || r === "yonetici" || r === "dataci") && can(me, "iyzico") },
     { href: "/notlar", label: "Notlar", show: staff },
     { href: "/egitimler", label: "Eğitimler", show: manager },
     { href: "/kullanicilar", label: "Kullanıcılar", show: manager && can(me, "users") },

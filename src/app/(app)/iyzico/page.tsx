@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePerm, requireRole } from "@/lib/auth";
+import { can, requirePerm, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, monthStartIst, num, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
@@ -16,7 +16,8 @@ const dayDiff = (a: string, b: string) => Math.abs((new Date(a.slice(0, 10)).get
 
 export default async function IyzicoPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
-  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("net");
+  const me = await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("iyzico");
+  const seeNet = can(me, "net");
   const supabase = await createClient();
   const from = sp.bas || monthStartIst();
   const to = sp.bit || todayIst();
@@ -63,8 +64,8 @@ export default async function IyzicoPage({ searchParams }: { searchParams: SP })
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         <div className="card"><div className="text-sm text-slate-500">iyzico Ödemesi</div><div className="text-2xl font-bold">{num(payments.length)}</div></div>
         <div className="card"><div className="text-sm text-slate-500">Brüt</div><div className="text-2xl font-bold">{tl(gross)}</div></div>
-        <div className="card"><div className="text-sm text-slate-500">Bize Kalan</div><div className="text-2xl font-bold text-green-700">{tl(payout)}</div></div>
-        <div className="card"><div className="text-sm text-slate-500">Kesinti</div><div className="text-2xl font-bold text-red-700">{tl(gross - payout)}</div><div className="text-xs text-slate-500">{gross ? `%${((gross - payout) / gross * 100).toFixed(1)}` : ""}</div></div>
+        {seeNet && <div className="card"><div className="text-sm text-slate-500">Bize Kalan</div><div className="text-2xl font-bold text-green-700">{tl(payout)}</div></div>}
+        {seeNet && <div className="card"><div className="text-sm text-slate-500">Kesinti</div><div className="text-2xl font-bold text-red-700">{tl(gross - payout)}</div><div className="text-xs text-slate-500">{gross ? `%${((gross - payout) / gross * 100).toFixed(1)}` : ""}</div></div>}
         <div className="card"><div className="text-sm text-slate-500">İade / İptal</div><div className="text-2xl font-bold">{tl(refundSum)}</div><div className="text-xs text-slate-500">{refunds.length} işlem</div></div>
         <div className="card"><div className="text-sm text-slate-500">Eşleşen Satış</div><div className="text-2xl font-bold">{matched.length} / {sales.length}</div></div>
       </div>
@@ -85,7 +86,7 @@ export default async function IyzicoPage({ searchParams }: { searchParams: SP })
                   <ActionForm action={matchManually} submitLabel="Eşleştir" resetOnSuccess={false} className="flex flex-1 flex-wrap items-center gap-2">
                     <input type="hidden" name="sale_id" value={s.id} />
                     <select name="transaction_id" className="input min-w-72 flex-1" defaultValue={c[0].id}>
-                      {c.map((t) => <option key={t.id} value={t.id}>{dateTime(t.transaction_date)} · {tl(t.price)} · {t.installment ?? 1} taksit · bize {tl(t.merchant_payout_amount)}</option>)}
+                      {c.map((t) => <option key={t.id} value={t.id}>{dateTime(t.transaction_date)} · {tl(t.price)} · {t.installment ?? 1} taksit{seeNet ? ` · bize ${tl(t.merchant_payout_amount)}` : ""}</option>)}
                     </select>
                   </ActionForm>
                 ) : <span className="text-xs text-amber-700">Bu tutarda boşta iyzico ödemesi yok (tutar, tarih ya da kaynak yanlış girilmiş olabilir).</span>}
@@ -100,11 +101,11 @@ export default async function IyzicoPage({ searchParams }: { searchParams: SP })
         <h2 className="p-4 pb-2 text-lg font-semibold">Satışa Bağlanmamış iyzico Ödemeleri ({freeTx.length})</h2>
         <p className="px-4 pb-2 text-sm text-slate-500">CRM&apos;de karşılığı bulunamayan ödemeler: satış girilmemiş ya da farklı tutar/kaynakla girilmiş olabilir.</p>
         <table className="w-full">
-          <thead className="bg-slate-50"><tr><th className="th">Tarih</th><th className="th">Tutar</th><th className="th">Tahsil edilen</th><th className="th">Taksit</th><th className="th">Bize kalan</th></tr></thead>
+          <thead className="bg-slate-50"><tr><th className="th">Tarih</th><th className="th">Tutar</th><th className="th">Tahsil edilen</th><th className="th">Taksit</th>{seeNet && <th className="th">Bize kalan</th>}</tr></thead>
           <tbody className="divide-y divide-slate-100">
             {freeTx.map((t) => (
               <tr key={t.id}><td className="td">{dateTime(t.transaction_date)}</td><td className="td">{tl(t.price)}</td><td className="td">{tl(t.paid_price)}</td>
-                <td className="td">{t.installment ?? 1}</td><td className="td">{tl(t.merchant_payout_amount)}</td></tr>
+                <td className="td">{t.installment ?? 1}</td>{seeNet && <td className="td">{tl(t.merchant_payout_amount)}</td>}</tr>
             ))}
           </tbody>
         </table>
@@ -113,14 +114,14 @@ export default async function IyzicoPage({ searchParams }: { searchParams: SP })
       <div className="card overflow-x-auto p-0">
         <h2 className="p-4 pb-2 text-lg font-semibold">Eşleşen Satışlar ({matched.length})</h2>
         <table className="w-full">
-          <thead className="bg-slate-50"><tr><th className="th">Tarih</th><th className="th">Müşteri</th><th className="th">Satışçı</th><th className="th">Tutar</th><th className="th">Bize gelen</th><th className="th">İade</th><th className="th"></th></tr></thead>
+          <thead className="bg-slate-50"><tr><th className="th">Tarih</th><th className="th">Müşteri</th><th className="th">Satışçı</th><th className="th">Tutar</th>{seeNet && <th className="th">Bize gelen</th>}<th className="th">İade</th><th className="th"></th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {matched.map((s) => (
               <tr key={s.id}>
                 <td className="td">{date(s.order_date)}</td>
                 <td className="td"><Link href={`/datalar/${s.customer_id}`} className="text-blue-700 hover:underline">{s.customer_name}</Link></td>
                 <td className="td">{s.seller_name ?? "-"}</td><td className="td">{tl(s.amount)}</td>
-                <td className="td text-green-700">{tl(s.net_amount)}</td>
+                {seeNet && <td className="td text-green-700">{tl(s.net_amount)}</td>}
                 <td className="td">{Number(s.iyzico_refunded) > 0 ? <span className="pill bg-red-100 text-red-800">{tl(s.iyzico_refunded)}</span> : "-"}</td>
                 <td className="td text-right">
                   <ActionForm action={unmatch} submitLabel="Kaldır" resetOnSuccess={false}><input type="hidden" name="sale_id" value={s.id} /></ActionForm>

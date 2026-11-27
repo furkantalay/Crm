@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 type S = { ok?: string; error?: string } | null;
 
 export async function syncNow(): Promise<S> {
-  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("net");
+  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("iyzico");
   const supabase = await createClient();
   const { data, error } = await supabase.functions.invoke("iyzico-sync", { body: {} });
   if (error || data?.error) {
@@ -23,7 +23,7 @@ export async function syncNow(): Promise<S> {
 }
 
 export async function matchManually(_: S, f: FormData): Promise<S> {
-  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("net");
+  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("iyzico");
   const supabase = await createClient();
   const tx = Number(f.get("transaction_id"));
   const sale = Number(f.get("sale_id"));
@@ -36,7 +36,7 @@ export async function matchManually(_: S, f: FormData): Promise<S> {
 }
 
 export async function unmatch(_: S, f: FormData): Promise<S> {
-  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("net");
+  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("iyzico");
   const supabase = await createClient();
   const { error } = await supabase.rpc("iyzico_unmatch", { p_sale: Number(f.get("sale_id")) });
   if (error) return { error: error.message };

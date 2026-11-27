@@ -37,9 +37,10 @@ export async function requireRole(roles: Role[]): Promise<Me> {
 }
 
 /** Yöneticiye açılıp kapatılabilen alanlar (Ayarlar → Yönetici yetkileri). */
-export type Perm = "net" | "ads" | "prim" | "users";
+export type Perm = "iyzico" | "net" | "ads" | "prim" | "users";
 export const PERMS: { key: Perm; label: string; hint: string; def: boolean }[] = [
-  { key: "net", label: "Bize kalan ve iyzico", hint: "Bize kalan / bize gelen tutarlar, iyzico komisyonları ve iyzico ekranı", def: false },
+  { key: "iyzico", label: "iyzico ekranı", hint: "iyzico ödemeleri, brüt tutarlar, iade/iptaller ve satış eşleştirme (bize kalan hariç)", def: true },
+  { key: "net", label: "Bize kalan", hint: "Bize kalan / bize gelen tutarlar ve iyzico kesintileri (panel, satışlar, raporlar, iyzico)", def: false },
   { key: "ads", label: "Reklam yönetimi gelirleri", hint: "Reklam Yönetimi ekranı ve paneldeki/rapordaki reklam tutarları", def: false },
   { key: "prim", label: "Herkesin primi", hint: "Primler ekranı ve paneldeki prim sütunu", def: true },
   { key: "users", label: "Kullanıcı yönetimi", hint: "Kullanıcılar ekranı: ekleme, pasife alma, şifre bağlantısı", def: true },
@@ -53,7 +54,7 @@ export function can(me: Me, perm: Perm): boolean {
     return typeof v === "boolean" ? v : PERMS.find((p) => p.key === perm)!.def;
   }
   // diğer roller: eskisi gibi (datacı/teknik net ve reklamı görür, satışçı görmez)
-  if (perm === "net") return me.role === "dataci" || me.role === "teknik";
+  if (perm === "net" || perm === "iyzico") return me.role === "dataci" || me.role === "teknik";
   if (perm === "ads") return me.role === "dataci";
   return false;
 }

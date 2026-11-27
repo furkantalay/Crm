@@ -34,24 +34,30 @@ async function caller(req: Request) {
   return p?.is_active ? { ...p, jwt } : null;
 }
 
-async function claude(system: string, user: string, maxTokens: number) {
+async function claude(system: string, user: string, maxTokens: number, tool?: { name: string; schema: unknown }) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": AI_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
+    body: JSON.stringify({
+      model: MODEL, max_tokens: maxTokens, system, messages: [{ role: "user", content: user }],
+      ...(tool ? { tools: [{ name: tool.name, description: "Sonucu kaydet", input_schema: tool.schema }], tool_choice: { type: "tool", name: tool.name } } : {}),
+    }),
   });
   const b = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`Claude ${r.status}: ${b?.error?.message ?? "hata"}`);
-  return { text: (b.content ?? []).map((c: any) => c.text ?? "").join(""), usage: b.usage, model: b.model };
+  const blocks = (b.content ?? []) as any[];
+  return { text: blocks.map((c) => c.text ?? "").join(""), input: blocks.find((c) => c.type === "tool_use")?.input, model: b.model };
 }
 
-function parseJson(t: string) {
-  const f = t.replace(/```json|```/g, "");
-  const a = f.search(/[\[{]/);
-  const z = Math.max(f.lastIndexOf("]"), f.lastIndexOf("}"));
-  if (a < 0 || z < a) throw new Error("Yapay zekâ yanıtı okunamadı");
-  return JSON.parse(f.slice(a, z + 1));
-}
+const ITEM = {
+  type: "object",
+  properties: {
+    id: { type: "integer" }, score: { type: "integer", minimum: 1, maximum: 100 },
+    label: { type: "string", enum: ["sıcak", "ılık", "soğuk"] }, group: { type: "string" },
+    reason: { type: "string" }, next: { type: "string" },
+  },
+  required: ["id", "score", "label", "group", "reason", "next"],
+};
 
 const CONTEXT = `Dijital Bir Adam; işletme sahiplerine Meta (Instagram/Facebook) reklamcılığı ve sosyal medyadan satış eğitimleri satan bir şirket.
 Datalar reklam formlarından gelen başvurulardır; satışçılar telefonla arayıp eğitim satar. Genel dönüşüm oranı her datada "genel_donusum_yuzde" olarak verilir.
@@ -69,9 +75,9 @@ reason: tek cümle, satışçıya hitap eden sade Türkçe. next: satışçını
 async function score(ids: number[]) {
   if (!ids.length) return 0;
   const feats = await rpc("ai_features", { p_ids: ids });
-  const sys = `${CONTEXT}\nYalnızca JSON dizi döndür, açıklama yazma: [{"id":<id>,"score":<1-100>,"label":"...","group":"...","reason":"...","next":"..."}]`;
-  const { text } = await claude(sys, JSON.stringify(feats), 4000);
-  const rows = (parseJson(text) as any[]).filter((r) => ids.includes(Number(r.id)) && Number.isFinite(Number(r.score)));
+  const { input } = await claude(`${CONTEXT}\nHer data için bir kayıt üret ve save_scores aracıyla kaydet.`, JSON.stringify(feats), 6000,
+    { name: "save_scores", schema: { type: "object", properties: { items: { type: "array", items: ITEM } }, required: ["items"] } });
+  const rows = ((input?.items ?? []) as any[]).filter((r) => ids.includes(Number(r.id)) && Number.isFinite(Number(r.score)));
   if (rows.length) await rpc("ai_save", { p_rows: rows });
   return rows.length;
 }
@@ -106,10 +112,12 @@ Deno.serve(async (req) => {
       const vis = cr.ok ? await cr.json() : [];
       if (!vis.length) return json({ error: "Bu dataya erişiminiz yok." }, 403);
       const [f] = await rpc("ai_features", { p_ids: [id] });
-      const sys = `${CONTEXT}\nAyrıca "summary": satışçının aramadan önce 10 saniyede okuyacağı 2-4 cümlelik özet (kim, ne istedi, ne konuşuldu, itirazı ne, nerede kalındı). Not yoksa bunu söyle.
-Yalnızca JSON nesne döndür: {"score":..,"label":"..","group":"..","reason":"..","next":"..","summary":".."}`;
-      const { text } = await claude(sys, JSON.stringify(f), 1200);
-      const r = parseJson(text);
+      const sys = `${CONTEXT}\nAyrıca "summary": satışçının aramadan önce 10 saniyede okuyacağı 2-4 cümlelik özet (ne istedi, ne konuşuldu, itirazı ne, nerede kalındı). Not yoksa bunu söyle. save_summary aracıyla kaydet.`;
+      const props = { ...ITEM.properties, summary: { type: "string" } } as Record<string, unknown>;
+      delete props.id;
+      const { input: r } = await claude(sys, JSON.stringify(f), 1500,
+        { name: "save_summary", schema: { type: "object", properties: props, required: ["score", "label", "group", "reason", "next", "summary"] } });
+      if (!r) throw new Error("Yapay zekâ yanıtı okunamadı");
       const row = { id, score: r.score, label: r.label, group: r.group, reason: r.reason, next: r.next, summary: r.summary, by: me.id };
       await rpc("ai_save", { p_rows: [row] });
       return json({ ok: true, ...row });

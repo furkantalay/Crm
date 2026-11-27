@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-class ApiException(message: String, val status: Int = 0) : Exception(message)
+class ApiException(message: String, val status: Int = 0, val resetToken: String? = null) : Exception(message)
 
 /** Supabase ile düz HTTP konuşan küçük istemci (ek kütüphane yok). */
 class Api(private val prefs: Prefs) {
@@ -39,7 +39,9 @@ class Api(private val prefs: Prefs) {
         val (c1, t1) = request("/functions/v1/auth-login",
             JSONObject().put("username", username).put("password", password).put("company", Config.COMPANY).toString())
         val j1 = try { JSONObject(t1) } catch (_: Exception) { JSONObject() }
-        if (j1.has("reset_token")) throw ApiException("Önce CRM web sitesinden yeni şifre belirleyin, sonra bu şifreyle giriş yapın.")
+        if (j1.has("reset_token")) throw ApiException(
+            "Eski şifreniz kısa olduğu için yeni şifre belirlemeniz gerekiyor. Açılan sayfada yeni şifrenizi belirleyin, sonra buraya dönüp yeni şifrenizle giriş yapın.",
+            0, j1.getString("reset_token"))
         if (c1 !in 200..299 || !j1.has("email")) throw ApiException(j1.optString("error", "Kullanıcı adı veya şifre hatalı."), c1)
 
         val (c2, t2) = request("/auth/v1/token?grant_type=password",

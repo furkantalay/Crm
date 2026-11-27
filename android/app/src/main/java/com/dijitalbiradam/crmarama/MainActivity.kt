@@ -104,7 +104,14 @@ class MainActivity : Activity() {
                         render()
                     }
                 } catch (e: Exception) {
-                    runOnUiThread { btn.isEnabled = true; msg.text = e.message ?: "Giriş yapılamadı." }
+                    runOnUiThread {
+                        btn.isEnabled = true; msg.text = e.message ?: "Giriş yapılamadı."
+                        val t = (e as? ApiException)?.resetToken
+                        if (t != null) {
+                            pass.setText("")
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${Config.CRM_WEB}/sifre-belirle?t=$t&kisa=1")))
+                        }
+                    }
                 }
             }.start()
         }

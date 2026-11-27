@@ -64,3 +64,5 @@ npm run dev
 - Eski veri merkezindeki `funnel_yedek` → `funnel_rows` (source = arsiv) taşındı (`hub-import`, tek seferlik).
 - Canlı: sayfadaki Apps Script (`tools/funnel-apps-script.gs`, jeton `sync_control.funnel`) 5 dakikada bir `funnel-ingest` fonksiyonuna son 300 satırı yollar.
 - Otomatik data açma `companies.settings.funnel_auto_create` ile açılır. **Geçiş gününden önce açmayın** (eski CRM'den yeniden aktarımla çift kayıt olur). Geçiş günü: `update companies set settings = settings || '{"funnel_auto_create":true}' where slug='dijitalbiradam';`
+
+> **Geçiş günü notu (27.11.2026):** Yalnız AYNUR, ŞEVVAL, İREM, ZEYNEP (+ WEB) aktif satışçı. Diğer satışçılar yeni CRM'de pasife alındı; `legacy-migrate` yeniden çalıştırılınca `is_active` ve `receives_leads` değerlerinin eski CRM'den gelenle ezilmediğini kontrol edin.

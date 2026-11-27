@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/auth";
+import { requirePerm, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { dateTime, roleLabel } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
@@ -12,7 +12,7 @@ function isOnline(v: string | null) {
 }
 
 export default async function UsersPage() {
-  const me = await requireRole(["admin", "yonetici"]);
+  const me = await requireRole(["admin", "yonetici"]); await requirePerm("users");
   const supabase = await createClient();
   const [{ data, error }, { data: company }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, username, role, is_active, auto_logout_enabled, auto_logout_minutes, last_seen_at, created_at, creator:profiles!created_by(full_name)")

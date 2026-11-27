@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { requirePerm, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, monthStartIst, num, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
@@ -16,7 +16,7 @@ const dayDiff = (a: string, b: string) => Math.abs((new Date(a.slice(0, 10)).get
 
 export default async function IyzicoPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
-  await requireRole(["admin", "yonetici", "dataci"]);
+  await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("net");
   const supabase = await createClient();
   const from = sp.bas || monthStartIst();
   const to = sp.bit || todayIst();

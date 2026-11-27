@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { requireRole } from "@/lib/auth";
+import { requirePerm, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formNum, formStr } from "@/lib/data";
 
@@ -16,7 +16,7 @@ async function siteUrl() {
 
 /** Yönetici, admin hesabına dokunamaz. */
 async function guardTarget(targetId: string) {
-  const me = await requireRole(["admin", "yonetici"]);
+  const me = await requireRole(["admin", "yonetici"]); await requirePerm("users");
   const supabase = await createClient();
   const { data: t } = await supabase.from("profiles").select("id, role").eq("id", targetId).single();
   if (!t) return { me, supabase, error: "Kullanıcı bulunamadı." };
@@ -25,7 +25,7 @@ async function guardTarget(targetId: string) {
 }
 
 export async function createUser(_: S, f: FormData): Promise<S> {
-  await requireRole(["admin", "yonetici"]);
+  await requireRole(["admin", "yonetici"]); await requirePerm("users");
   const supabase = await createClient();
   const { data, error } = await supabase.functions.invoke("admin-users", {
     body: {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { PERMS, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formNum, formStr } from "@/lib/data";
 
@@ -48,4 +48,16 @@ export async function updateLookup(_: S, f: FormData): Promise<S> {
   if (error) return { error: "Kaydedilemedi: " + error.message };
   revalidatePath("/ayarlar");
   return { ok: "Kaydedildi." };
+}
+
+export async function saveManagerPerms(_: S, f: FormData): Promise<S> {
+  const me = await requireRole(["admin"]);
+  const supabase = await createClient();
+  const { data: co } = await supabase.from("companies").select("settings").eq("id", me.company_id).single();
+  const manager_can = Object.fromEntries(PERMS.map((p) => [p.key, f.get(p.key) === "1"]));
+  const settings = { ...(co?.settings ?? {}), manager_can };
+  const { error } = await supabase.from("companies").update({ settings }).eq("id", me.company_id);
+  if (error) return { error: "Kaydedilemedi: " + error.message };
+  revalidatePath("/", "layout");
+  return { ok: "Kaydedildi. Yöneticinin ekranı bir sonraki sayfa açılışında güncellenir." };
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { requirePerm, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { loadCommissions, tierLabel } from "@/lib/commission";
 import { date, num, tl, todayIst } from "@/lib/format";
@@ -32,7 +32,7 @@ function RuleRow({ r, canEdit }: { r: Rule; canEdit: boolean }) {
 
 export default async function CommissionsPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
-  const me = await requireRole(["admin", "yonetici"]);
+  const me = await requireRole(["admin", "yonetici"]); await requirePerm("prim");
   const isAdmin = me.role === "admin";
   const supabase = await createClient();
   const month = sp.ay || todayIst().slice(0, 7);

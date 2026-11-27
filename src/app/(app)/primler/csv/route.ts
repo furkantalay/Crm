@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getMe } from "@/lib/auth";
+import { can, getMe } from "@/lib/auth";
 import { loadCommissions, tierLabel } from "@/lib/commission";
 import { todayIst } from "@/lib/format";
 
@@ -7,7 +7,7 @@ const tr = (n: number | null) => (n == null ? "" : String(n).replace(".", ","));
 
 export async function GET(req: NextRequest) {
   const me = await getMe();
-  if (me.role !== "admin" && me.role !== "yonetici") return new NextResponse("Yetkiniz yok", { status: 403 });
+  if ((me.role !== "admin" && me.role !== "yonetici") || !can(me, "prim")) return new NextResponse("Yetkiniz yok", { status: 403 });
   const month = req.nextUrl.searchParams.get("ay") || todayIst().slice(0, 7);
   const { rows } = await loadCommissions(month);
   const head = ["Satışçı", "Satış adedi", "Aylık satış tutarı", "Kademe", "Aylık prim", "Günlük prim günü", "Günlük prim", "Toplam prim"];

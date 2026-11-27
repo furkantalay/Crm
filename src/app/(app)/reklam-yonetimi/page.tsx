@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { requirePerm, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { num, tl } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
@@ -40,7 +40,7 @@ function AdTable({ rows, canDeactivate }: { rows: Ad[]; canDeactivate: boolean }
 
 export default async function AdsPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
-  const me = await requireRole(["admin", "yonetici", "dataci"]);
+  const me = await requireRole(["admin", "yonetici", "dataci"]); await requirePerm("ads");
   const supabase = await createClient();
   let q = supabase.from("ad_clients").select("*").eq("is_active", true).order("started_at", { ascending: false, nullsFirst: false });
   if (sp.durum) q = q.eq("status", sp.durum);

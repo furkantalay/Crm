@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getMe, isStaff } from "@/lib/auth";
+import { can, getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, monthStartIst, num, tl, todayIst } from "@/lib/format";
 
@@ -8,6 +8,7 @@ type SP = Promise<Record<string, string | undefined>>;
 export default async function SatislarPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const me = await getMe();
+  const seeNet = me.role === "satisci" || can(me, "net");
   const supabase = await createClient();
   const from = sp.bas || monthStartIst();
   const to = sp.bit || todayIst();
@@ -52,7 +53,7 @@ export default async function SatislarPage({ searchParams }: { searchParams: SP 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="card"><div className="text-sm text-slate-500">Satış Adedi</div><div className="text-2xl font-bold">{num(list.length)}</div></div>
         <div className="card"><div className="text-sm text-slate-500">Ciro</div><div className="text-2xl font-bold">{tl(total)}</div></div>
-        <div className="card"><div className="text-sm text-slate-500">Bize Gelen</div><div className="text-2xl font-bold text-green-700">{tl(net)}</div><div className="text-xs text-slate-500">Kesinti: {tl(total - net)}</div></div>
+        {seeNet && <div className="card"><div className="text-sm text-slate-500">Bize Gelen</div><div className="text-2xl font-bold text-green-700">{tl(net)}</div><div className="text-xs text-slate-500">Kesinti: {tl(total - net)}</div></div>}
       </div>
 
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Liste yüklenemedi: {error.message}</p>}
@@ -61,7 +62,7 @@ export default async function SatislarPage({ searchParams }: { searchParams: SP 
         <table className="w-full">
           <thead className="bg-slate-50"><tr>
             <th className="th">Tarih</th><th className="th">Müşteri</th>{isStaff(me.role) && <th className="th">Satışçı</th>}
-            <th className="th">Tutar</th><th className="th">Bize Gelen</th><th className="th">Kaynak</th>
+            <th className="th">Tutar</th>{seeNet && <th className="th">Bize Gelen</th>}<th className="th">Kaynak</th>
             <th className="th">Ödeme</th><th className="th">Eğitim</th><th className="th">Data Tipi</th>
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
@@ -72,9 +73,9 @@ export default async function SatislarPage({ searchParams }: { searchParams: SP 
                   <div className="text-xs text-slate-500">{s.customer_phone}</div></td>
                 {isStaff(me.role) && <td className="td whitespace-nowrap">{s.seller_name ?? "-"}</td>}
                 <td className="td whitespace-nowrap">{tl(s.amount)}</td>
-                <td className="td whitespace-nowrap">{tl(s.net_amount)}
+                {seeNet && <td className="td whitespace-nowrap">{tl(s.net_amount)}
                   {s.net_source === "iyzico" && <span className="ml-1 text-xs text-green-700" title="iyzico'dan otomatik">✓ iyzico</span>}
-                  {Number(s.iyzico_refunded) > 0 && <div className="text-xs text-red-700">İade: {tl(s.iyzico_refunded)}</div>}</td>
+                  {Number(s.iyzico_refunded) > 0 && <div className="text-xs text-red-700">İade: {tl(s.iyzico_refunded)}</div>}</td>}
                 <td className="td">{s.sale_source ?? "-"}</td>
                 <td className="td whitespace-nowrap">{s.payment_method ?? "-"}{s.installments ? ` / ${s.installments}` : ""}</td>
                 <td className="td max-w-60 text-xs">{s.products ?? "-"}</td>

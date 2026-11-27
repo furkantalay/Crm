@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getMe } from "@/lib/auth";
+import { can, getMe } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { dateTime, roleLabel } from "@/lib/format";
 import NavLinks from "@/components/NavLinks";
@@ -29,13 +29,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/toplantilar", label: "Toplantı Planı", show: true },
     { href: "/memnuniyet", label: "Memnuniyet", show: true },
     { href: "/aktarim", label: "Toplu Aktarım", show: staff },
-    { href: "/reklam-yonetimi", label: "Reklam Yönetimi", show: r === "admin" || r === "yonetici" || r === "dataci" },
+    { href: "/reklam-yonetimi", label: "Reklam Yönetimi", show: can(me, "ads") },
     { href: "/raporlar", label: "Raporlar", show: staff },
-    { href: "/primler", label: "Primler", show: manager },
-    { href: "/iyzico", label: "iyzico", show: r === "admin" || r === "yonetici" || r === "dataci" },
+    { href: "/primler", label: "Primler", show: manager && can(me, "prim") },
+    { href: "/iyzico", label: "iyzico", show: (r === "admin" || r === "yonetici" || r === "dataci") && can(me, "net") },
     { href: "/notlar", label: "Notlar", show: staff },
     { href: "/egitimler", label: "Eğitimler", show: manager },
-    { href: "/kullanicilar", label: "Kullanıcılar", show: manager },
+    { href: "/kullanicilar", label: "Kullanıcılar", show: manager && can(me, "users") },
     { href: "/ayarlar", label: "Ayarlar", show: manager },
     { href: "/teknik-kontrol", label: "Teknik Kontrol", show: r === "admin" || r === "teknik" || r === "yonetici" },
     { href: "/loglar", label: "Loglar", show: r === "admin" || r === "teknik" },

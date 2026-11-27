@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { callDur, callIcon, callLabel } from "@/lib/calls";
 import { notFound } from "next/navigation";
-import { getMe, isStaff } from "@/lib/auth";
+import { can, getMe, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { date, dateTime, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
@@ -192,7 +192,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               <input type="hidden" name="data_type_id" value={c.data_type_id ?? ""} />
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Tutar (₺)</label><input name="amount" inputMode="decimal" className="input" required /></div>
-                <div><label className="label">Bize gelen (₺)</label><input name="net_amount" inputMode="decimal" className="input" placeholder="Boşsa tutar" /></div>
+                {(me.role === "satisci" || can(me, "net")) && <div><label className="label">Bize gelen (₺)</label><input name="net_amount" inputMode="decimal" className="input" placeholder="Boşsa tutar" /></div>}
                 <div><label className="label">Sipariş tarihi</label><input type="date" name="order_date" defaultValue={todayIst()} className="input" /></div>
                 <div><label className="label">Satış kaynağı</label>
                   <select name="sale_source_id" className="input">{L("sale_source").map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></div>

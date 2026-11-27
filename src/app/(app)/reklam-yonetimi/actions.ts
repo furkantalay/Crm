@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getMe } from "@/lib/auth";
+import { getMe, requirePerm } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formNum, formStr } from "@/lib/data";
 
@@ -20,7 +20,7 @@ function fields(f: FormData) {
 }
 
 export async function addAdClient(_: S, f: FormData): Promise<S> {
-  const me = await getMe();
+  const me = await getMe(); await requirePerm("ads");
   if (!ALLOWED.includes(me.role)) return { error: "Yetkiniz yok." };
   const supabase = await createClient();
   const priv = me.role === "admin" && f.get("is_admin_private") === "1";
@@ -32,7 +32,7 @@ export async function addAdClient(_: S, f: FormData): Promise<S> {
 }
 
 export async function updateAdClient(_: S, f: FormData): Promise<S> {
-  const me = await getMe();
+  const me = await getMe(); await requirePerm("ads");
   if (!ALLOWED.includes(me.role)) return { error: "Yetkiniz yok." };
   const supabase = await createClient();
   const { error } = await supabase.from("ad_clients").update(fields(f)).eq("id", Number(f.get("id")));
@@ -43,7 +43,7 @@ export async function updateAdClient(_: S, f: FormData): Promise<S> {
 }
 
 export async function deactivateAdClient(_: S, f: FormData): Promise<S> {
-  const me = await getMe();
+  const me = await getMe(); await requirePerm("ads");
   if (!ALLOWED.includes(me.role)) return { error: "Yetkiniz yok." };
   const supabase = await createClient();
   const { error } = await supabase.from("ad_clients").update({ is_active: false }).eq("id", Number(f.get("id")));

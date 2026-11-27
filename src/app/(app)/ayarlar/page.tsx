@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { can, PERMS, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import ActionForm from "@/components/ActionForm";
-import { addLookup, saveCompany, updateLookup } from "./actions";
+import { addLookup, saveCompany, updateLookup, saveManagerPerms } from "./actions";
 
 const CATS: Record<string, string> = {
   data_type: "Data tipleri", contact_status: "Görüşme durumları", sale_source: "Satış kaynakları",
@@ -31,6 +31,24 @@ export default async function SettingsPage() {
           </ActionForm>
         ) : <p className="text-sm">Genel süre: <b>{company?.default_logout_minutes} dk</b> (yalnız admin değiştirebilir)</p>}
       </div>
+
+      {me.role === "admin" && (
+        <div className="card">
+          <h2 className="mb-1 text-lg font-semibold">Yönetici yetkileri</h2>
+          <p className="mb-3 text-sm text-slate-600">Yönetici rolündeki kullanıcıların (ör. MERVE) neleri görebileceğini seçin. Admin her şeyi görür. İstediğiniz zaman değiştirebilirsiniz.</p>
+          <ActionForm action={saveManagerPerms} submitLabel="Kaydet" resetOnSuccess={false} className="space-y-2">
+            {PERMS.map((p) => {
+              const on = can({ ...me, role: "yonetici" }, p.key);
+              return (
+                <label key={p.key} className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" name={p.key} value="1" defaultChecked={on} className="mt-1" />
+                  <span><b>{p.label}</b><span className="block text-xs text-slate-500">{p.hint}</span></span>
+                </label>
+              );
+            })}
+          </ActionForm>
+        </div>
+      )}
 
       <div className="card">
         <h2 className="mb-1 text-lg font-semibold">Listeler</h2>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getMe, isStaff } from "@/lib/auth";
+import { getMe, isStaff, can } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { monthStartIst, num, tl, todayIst } from "@/lib/format";
 import { loadCommissions } from "@/lib/commission";
@@ -41,7 +41,9 @@ export default async function PanelPage() {
   const adPrivSum = adPrivate.reduce((s, r) => s + Number(r.monthly_fee), 0);
   const sellers = (summary.data ?? []).filter((s) => isStaff(me.role) || s.seller_id === me.id);
   const manager = me.role === "admin" || me.role === "yonetici";
-  const prim = manager ? new Map((await loadCommissions(todayIst().slice(0, 7))).rows.map((r) => [r.seller_id, r])) : null;
+  const seeNet = can(me, "net") || me.role === "satisci";
+  const seeAds = can(me, "ads");
+  const prim = manager && can(me, "prim") ? new Map((await loadCommissions(todayIst().slice(0, 7))).rows.map((r) => [r.seller_id, r])) : null;
   type Mine = { total: number | null; sale_count: number | null; tier_kind: string | null; tier_value: number | null; monthly_commission: number | null;
     daily_commission: number | null; daily_bonus_days: number | null; next_tier_min: number | null; to_next_tier: number | null;
     today_total: number | null; today_commission: number | null; next_daily_min: number | null };
@@ -56,12 +58,10 @@ export default async function PanelPage() {
         <Stat label="Aktif Data" value={num(active.count)} sub="Satışa dönmemiş" />
         <Stat label="Bu Ay Satış" value={num(salesCount)} />
         <Stat label="Bu Ay Satış Cirosu" value={tl(salesSum)} />
-        <Stat label="Bu Ay Bize Kalan" value={tl(netSum)} sub={salesSum ? `Kesinti: ${tl(salesSum - netSum)}` : undefined} />
-        {me.role !== "satisci" && (
-          <>
-            <Stat label="Bu Ay Reklam Yönetimi" value={tl(adSum)} sub={`${adPublic.length} kayıt`} />
-            <Stat label="Bize Kalan + Reklam" value={tl(netSum + adSum)} sub={`Brüt satış + reklam: ${tl(salesSum + adSum)}`} />
-          </>
+        {seeNet && <Stat label="Bu Ay Bize Kalan" value={tl(netSum)} sub={salesSum ? `Kesinti: ${tl(salesSum - netSum)}` : undefined} />}
+        {me.role !== "satisci" && seeAds && <Stat label="Bu Ay Reklam Yönetimi" value={tl(adSum)} sub={`${adPublic.length} kayıt`} />}
+        {me.role !== "satisci" && seeAds && seeNet && (
+          <Stat label="Bize Kalan + Reklam" value={tl(netSum + adSum)} sub={`Brüt satış + reklam: ${tl(salesSum + adSum)}`} />
         )}
         {me.role === "admin" && (
           <Stat label="Admin Özel Reklam" value={tl(adPrivSum)} sub={`${adPrivate.length} kayıt / genel toplama dahil değil`} accent />

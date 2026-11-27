@@ -14,8 +14,8 @@ function isOnline(v: string | null) {
 export default async function UsersPage() {
   const me = await requireRole(["admin", "yonetici"]);
   const supabase = await createClient();
-  const [{ data }, { data: company }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name, username, role, is_active, auto_logout_enabled, auto_logout_minutes, last_seen_at, created_at, creator:profiles!profiles_created_by_fkey(full_name)")
+  const [{ data, error }, { data: company }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name, username, role, is_active, auto_logout_enabled, auto_logout_minutes, last_seen_at, created_at, creator:profiles!created_by(full_name)")
       .order("is_active", { ascending: false }).order("role").order("full_name"),
     supabase.from("companies").select("default_logout_minutes").single(),
   ]);
@@ -45,6 +45,7 @@ export default async function UsersPage() {
         </ActionForm>
       </div>
 
+      {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Kullanıcı listesi yüklenemedi: {error.message}</p>}
       <div className="space-y-2">
         {users.map((u) => {
           const locked = me.role !== "admin" && u.role === "admin";

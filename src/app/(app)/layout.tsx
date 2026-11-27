@@ -10,11 +10,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const me = await getMe();
   const supabase = await createClient();
 
-  const [{ data: ann }, { count: unread }] = await Promise.all([
+  const [{ data: ann }, { count: unread }, { data: chatRooms }] = await Promise.all([
     supabase.from("announcements").select("body, created_at, author:profiles(full_name)")
       .eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    supabase.rpc("chat_my_rooms"),
   ]);
+  const chatUnread = ((chatRooms ?? []) as { unread: number }[]).reduce((t, r) => t + (r.unread || 0), 0);
 
   const r = me.role;
   const staff = r !== "satisci";
@@ -25,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/ekip", label: "Ekip Durumu", show: manager },
     { href: "/dagitim", label: "Data Dağıtımı", show: manager },
     { href: "/datalar", label: "Datalar", show: true },
+    { href: "/mesajlar", label: "Mesajlar", show: true },
     { href: "/satislar", label: "Satışlar", show: true },
     { href: "/aramalar", label: "Aramalar", show: true },
     { href: "/beklenen-satislar", label: "Beklenen Satışlar", show: true },
@@ -56,6 +59,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="text-xl font-bold">CRM</Link>
           <div className="order-last w-full md:order-none md:w-auto md:flex-1"><NavLinks items={items} /></div>
           <div className="ml-auto flex items-center gap-4 text-sm md:ml-0">
+            <Link href="/mesajlar" title="Mesajlar" className="text-slate-300 hover:text-white">
+              💬 {chatUnread ? <span className="rounded-full bg-red-500 px-1.5 text-xs text-white">{chatUnread}</span> : null}
+            </Link>
             <Link href="/bildirimler" title="Bildirimler" className="text-slate-300 hover:text-white">
               🔔 {unread ? <span className="rounded-full bg-red-500 px-1.5 text-xs text-white">{unread}</span> : 0}
             </Link>

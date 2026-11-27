@@ -7,6 +7,7 @@ import { date, dateTime, tl, todayIst } from "@/lib/format";
 import ActionForm from "@/components/ActionForm";
 import { addInteraction, addSale, cancelPaymentLink, createPaymentLink, setActive, updateAssignment } from "./actions";
 import { addExpected } from "../../beklenen-satislar/actions";
+import { shareCustomer } from "../../mesajlar/actions";
 import { addMeeting } from "../../toplantilar/actions";
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +18,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const { data: c } = await supabase.from("v_customer_list").select("*").eq("id", id).maybeSingle();
   if (!c) notFound();
 
-  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }, { data: links }] = await Promise.all([
+  const [{ data: raw }, { data: history }, { data: sales }, { data: lookups }, { data: products }, { data: sellers }, { data: calls }, { data: links }, { data: myRooms }] = await Promise.all([
     supabase.from("customers").select("email, extra, created_at").eq("id", id).single(),
     supabase.from("interactions").select("id, note, channel, created_at, next_followup_at, user:profiles(full_name), status:lookups(label)")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(200),
@@ -29,6 +30,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       .eq("customer_id", id).order("started_at", { ascending: false }).limit(100),
     supabase.from("payment_links").select("id, amount, description, url, status, created_at, paid_at, error")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(20),
+    supabase.rpc("chat_my_rooms"),
   ]);
   const L = (cat: string) => (lookups ?? []).filter((l) => l.category === cat);
   const extra = (raw?.extra ?? {}) as Record<string, string>;
@@ -188,6 +190,20 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               </ActionForm>
             </div>
           )}
+
+          <details className="card">
+            <summary className="cursor-pointer text-lg font-semibold">💬 Ekibe sor / paylaş</summary>
+            <ActionForm action={shareCustomer} submitLabel="Gönder" className="mt-3 space-y-2">
+              <input type="hidden" name="customer_id" value={c.id} />
+              <select name="room_id" className="input" required defaultValue="">
+                <option value="" disabled>Kime?</option>
+                {((myRooms ?? []) as { room_id: number; title: string | null; kind: string }[]).filter((r) => r.kind !== "announce" || me.role === "admin" || me.role === "yonetici")
+                  .map((r) => <option key={r.room_id} value={r.room_id}>{r.kind === "dm" ? "👤 " : ""}{r.title}</option>)}
+              </select>
+              <textarea name="body" rows={2} className="input" placeholder="Örn. Bu müşteri taksit soruyor, ne önerelim?" />
+              <p className="text-xs text-slate-500">Yeni birebir sohbet açmak için Mesajlar ekranını kullanın; mesaja bu data iliştirilir.</p>
+            </ActionForm>
+          </details>
 
           <div className="card border-l-4 border-green-500">
             <h2 className="mb-1 text-lg font-semibold">💳 Ödeme Bağlantısı (iyzico)</h2>

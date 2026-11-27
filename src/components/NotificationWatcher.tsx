@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type N = { id: number; title: string; body: string | null; link: string | null; created_at: string };
@@ -10,6 +10,10 @@ type N = { id: number; title: string; body: string | null; link: string | null; 
 /** Yeni bildirimleri 20 sn'de bir kontrol eder; ekranda kutu + ses + (izin varsa) tarayıcı bildirimi gösterir. */
 export default function NotificationWatcher() {
   const router = useRouter();
+  const pathname = usePathname();
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+  const chatSeen = useRef<Map<number, number> | null>(null);
   const [toasts, setToasts] = useState<N[]>([]);
   const since = useRef<string>(new Date().toISOString());
   const [canAsk, setCanAsk] = useState(false);
@@ -28,7 +32,29 @@ export default function NotificationWatcher() {
       } catch {}
     };
 
+    const checkChat = async () => {
+      const { data } = await supabase.rpc("chat_my_rooms");
+      const rows = (data ?? []) as { room_id: number; title: string | null; unread: number; last_body: string | null; last_user: string | null; kind: string }[];
+      const prev = chatSeen.current;
+      const next = new Map(rows.map((r) => [r.room_id, r.unread]));
+      chatSeen.current = next;
+      if (!prev) return; // ilk yoklama: yalnız başlangıç değeri
+      const fresh = rows.filter((r) => r.unread > (prev.get(r.room_id) ?? 0));
+      if (!fresh.length) return;
+      if (!pathRef.current.startsWith("/mesajlar")) {
+        const toastRows: N[] = fresh.map((r) => ({ id: -r.room_id * 1000 - r.unread, title: `💬 ${r.title ?? "Mesaj"}`,
+          body: r.last_body ? `${r.kind !== "dm" && r.last_user ? r.last_user + ": " : ""}${r.last_body}` : null, link: `/mesajlar?oda=${r.room_id}`, created_at: "" }));
+        setToasts((t) => [...t.filter((x) => !toastRows.some((y) => y.id === x.id)), ...toastRows].slice(-4));
+        beep();
+        if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState === "hidden") {
+          toastRows.forEach((n) => { try { const x = new Notification(n.title, { body: n.body ?? "" }); x.onclick = () => { window.focus(); router.push(n.link!); }; } catch {} });
+        }
+      }
+      router.refresh();
+    };
+
     const check = async () => {
+      checkChat().catch(() => undefined);
       if (stop || document.visibilityState === "hidden" && typeof Notification === "undefined") return;
       const { data } = await supabase.from("notifications").select("id, title, body, link, created_at")
         .is("read_at", null).gt("created_at", since.current).order("created_at", { ascending: true }).limit(5);

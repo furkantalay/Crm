@@ -30,7 +30,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     supabase.from("profiles").select("id, full_name").eq("role", "satisci").eq("is_active", true).order("full_name"),
     supabase.from("v_call_list").select("id, direction, started_at, duration_sec, user_name")
       .eq("customer_id", id).order("started_at", { ascending: false }).limit(100),
-    supabase.from("payment_links").select("id, amount, description, url, status, created_at, paid_at, error")
+    supabase.from("payment_links").select("id, amount, currency, provider, amount_try, description, url, status, created_at, paid_at, error")
       .eq("customer_id", id).order("created_at", { ascending: false }).limit(20),
     supabase.rpc("chat_my_rooms"),
     supabase.from("customer_ai").select("score, label, grp, reason, next_step, summary, scored_at, summarized_at").eq("customer_id", id).maybeSingle(),
@@ -235,14 +235,19 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           </details>
 
           <div className="card border-l-4 border-green-500">
-            <h2 className="mb-1 text-lg font-semibold">💳 Ödeme Bağlantısı (iyzico)</h2>
-            <p className="mb-3 text-xs text-slate-500">Müşteriye gönderilecek tek kullanımlık ödeme sayfası. Kartla öder (taksit seçebilir); ödeme gelince satış bu karta kendiliğinden girilir, size bildirim düşer.</p>
+            <h2 className="mb-1 text-lg font-semibold">💳 Ödeme Bağlantısı</h2>
+            <p className="mb-3 text-xs text-slate-500">Müşteriye gönderilecek tek kullanımlık ödeme sayfası. Ödeme gelince satış bu karta kendiliğinden girilir, size bildirim düşer. <b>iyzico</b>: TL, taksit seçilebilir. <b>Stripe</b>: tek çekim, USD/EUR/TL; yurt dışı kartlar için uygun. Dövizli ödemeler satışa o günün TCMB kuruyla TL olarak girilir.</p>
             <ActionForm action={createPaymentLink} submitLabel="Bağlantı oluştur" className="space-y-3">
               <input type="hidden" name="customer_id" value={c.id} />
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="label">Tutar (₺)</label><input name="amount" inputMode="decimal" className="input" required /></div>
+                <div><label className="label">Ödeme sistemi</label>
+                  <select name="provider" className="input" defaultValue="iyzico"><option value="iyzico">iyzico (TL, taksitli)</option><option value="stripe">Stripe (tek çekim)</option></select></div>
+                <div><label className="label">Para birimi (Stripe)</label>
+                  <select name="currency" className="input" defaultValue="USD"><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="TRY">TL ₺</option></select></div>
+                <div><label className="label">Tutar</label><input name="amount" inputMode="decimal" className="input" required /></div>
                 <div><label className="label">Açıklama (isteğe bağlı)</label><input name="description" className="input" placeholder="Boşsa seçilen eğitim" /></div>
               </div>
+              <p className="text-xs text-slate-500">iyzico seçiliyse tutar her zaman TL&apos;dir.</p>
               <div><label className="label">Eğitim / paket</label>
                 <div className="grid grid-cols-1 gap-1 rounded-lg border border-slate-200 p-2 text-sm md:grid-cols-2">
                   {(products ?? []).map((p) => (
@@ -254,7 +259,9 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100 text-sm">
                 {links.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                    <b>{tl(l.amount)}</b>
+                    <b>{l.currency && l.currency !== "TRY" ? `${Number(l.amount).toLocaleString("tr-TR")} ${l.currency}` : tl(l.amount)}</b>
+                    <span className="pill">{l.provider === "stripe" ? "Stripe" : "iyzico"}</span>
+                    {l.amount_try && l.currency !== "TRY" ? <span className="text-xs text-slate-500">≈ {tl(l.amount_try)}</span> : null}
                     <span className="text-slate-600">{l.description}</span>
                     {l.status === "bekliyor" && <span className="pill bg-amber-100 text-amber-800">ödeme bekleniyor</span>}
                     {l.status === "odendi" && <span className="pill bg-green-100 text-green-800">ödendi {l.paid_at ? dateTime(l.paid_at) : ""}</span>}
@@ -266,7 +273,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                         <a href={`https://wa.me/${c.phone_norm ? "90" + c.phone_norm : ""}?text=${encodeURIComponent(`Merhaba ${c.full_name}, ödeme bağlantınız: ${l.url}`)}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-green-700 hover:underline">WhatsApp&apos;ta gönder</a>
                         <a href={l.url} target="_blank" rel="noreferrer" className="text-xs text-blue-700 hover:underline">Aç</a>
                         <ActionForm action={cancelPaymentLink} submitLabel="İptal" resetOnSuccess={false} confirm="Bağlantı iptal edilsin mi?">
-                          <input type="hidden" name="id" value={l.id} /><input type="hidden" name="customer_id" value={c.id} />
+                          <input type="hidden" name="id" value={l.id} /><input type="hidden" name="customer_id" value={c.id} /><input type="hidden" name="provider" value={l.provider ?? "iyzico"} />
                         </ActionForm>
                       </span>
                     )}

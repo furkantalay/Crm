@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       const [ctrl] = await db("sync_control?name=eq.iyzico_links&select=token");
       if (!ctrl || req.headers.get("x-sync-token") !== ctrl.token) return json({ error: "yetkisiz" }, 401);
       const since = new Date(Date.now() - 30 * 864e5).toISOString();
-      const pending = await db(`payment_links?status=eq.bekliyor&token=not.is.null&created_at=gt.${since}&select=id,token,company_id&order=created_at.asc&limit=100`);
+      const pending = await db(`payment_links?provider=eq.iyzico&status=eq.bekliyor&token=not.is.null&created_at=gt.${since}&select=id,token,company_id&order=created_at.asc&limit=100`);
       const paid: number[] = [];
       for (const l of pending) {
         const r = await iyzico("GET", `/v2/iyzilink/products/${l.token}`);
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
         await new Promise((res) => setTimeout(res, 400));
       }
       // Ödenenler için iyzico işlemlerini çek ve eşleştir
-      const unmatched = await db(`payment_links?status=eq.odendi&paid_at=gt.${since}&select=id,sale_id,sales!inner(iyzico_payment_id)&sales.iyzico_payment_id=is.null&limit=50`).catch(() => []);
+      const unmatched = await db(`payment_links?provider=eq.iyzico&status=eq.odendi&paid_at=gt.${since}&select=id,sale_id,sales!inner(iyzico_payment_id)&sales.iyzico_payment_id=is.null&limit=50`).catch(() => []);
       if (paid.length || unmatched.length) {
         const [s] = await db("sync_control?name=eq.iyzico&select=token");
         const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
@@ -97,10 +97,11 @@ Deno.serve(async (req) => {
     if (!me) return json({ error: "Giriş gerekli." }, 401);
 
     if (action === "cancel") {
-      const [l] = await db(`payment_links?id=eq.${Number(body.id)}&company_id=eq.${me.company_id}&select=id,token,status,seller_id`);
+      const [l] = await db(`payment_links?id=eq.${Number(body.id)}&company_id=eq.${me.company_id}&select=id,token,status,seller_id,provider`);
       if (!l) return json({ error: "Bağlantı bulunamadı." }, 404);
       if (me.role === "satisci" && l.seller_id !== me.id) return json({ error: "Yetkiniz yok." }, 403);
       if (l.status !== "bekliyor") return json({ error: "Bu bağlantı artık iptal edilemez." }, 400);
+      if (l.provider !== "iyzico") return json({ error: "Bu bir iyzico bağlantısı değil." }, 400);
       if (l.token) await iyzico("DELETE", `/v2/iyzilink/products/${l.token}`);
       await db(`payment_links?id=eq.${l.id}`, { method: "PATCH", body: JSON.stringify({ status: "iptal" }) });
       return json({ ok: true });

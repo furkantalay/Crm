@@ -8,7 +8,10 @@ type Rec = any;
 
 /** Görüşme sonrası sesli not: telefon/Chrome'un Türkçe konuşma tanıması ile yazıya döker,
  *  yapay zekâ notu düzenler, durum ve geri arama zamanını çıkarır. Ses kaydedilmez. */
-export default function VoiceNote({ customerId, action }: { customerId: number; action: (s: State, f: FormData) => Promise<State> }) {
+export default function VoiceNote({ customerId, action, hidden, placeholder, submitLabel, pendingLabel, footer, rows }: {
+  customerId?: number; action: (s: State, f: FormData) => Promise<State>; hidden?: Record<string, string>;
+  placeholder?: string; submitLabel?: string; pendingLabel?: string; footer?: string | null; rows?: number;
+}) {
   const [state, formAction, pending] = useActionState(action, null);
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
@@ -45,7 +48,8 @@ export default function VoiceNote({ customerId, action }: { customerId: number; 
 
   return (
     <form action={formAction} className="space-y-2">
-      <input type="hidden" name="customer_id" value={customerId} />
+      {customerId != null && <input type="hidden" name="customer_id" value={customerId} />}
+      {Object.entries(hidden ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <div className="flex flex-wrap items-center gap-2">
         {supported ? (
           listening
@@ -54,14 +58,14 @@ export default function VoiceNote({ customerId, action }: { customerId: number; 
         ) : <span className="text-xs text-slate-500">Bu tarayıcı konuşma tanımayı desteklemiyor; klavyedeki 🎤 tuşuyla yazabilirsiniz.</span>}
         {listening && <span className="animate-pulse text-sm text-red-600">● Dinliyorum…</span>}
       </div>
-      <textarea name="text" rows={3} value={text} onChange={(e) => setText(e.target.value)} className="input"
-        placeholder='Örn: "Fiyatı yüksek buldu, eşine danışacak, cuma öğleden sonra tekrar ara"' />
+      <textarea name="text" rows={rows ?? 3} value={text} onChange={(e) => setText(e.target.value)} className="input"
+        placeholder={placeholder ?? 'Örn: "Fiyatı yüksek buldu, eşine danışacak, cuma öğleden sonra tekrar ara"'} />
       <div className="flex flex-wrap items-center gap-3">
-        <button className="btn" disabled={pending || listening || !text.trim()}>{pending ? "Yapay zekâ düzenliyor…" : "✨ Kaydet"}</button>
+        <button className="btn" disabled={pending || listening || !text.trim()}>{pending ? (pendingLabel ?? "Yapay zekâ düzenliyor…") : (submitLabel ?? "✨ Kaydet")}</button>
         {state?.ok && <span className="text-sm text-green-700">{state.ok}</span>}
         {state?.error && <span className="text-sm text-red-700">{state.error}</span>}
       </div>
-      <p className="text-xs text-slate-400">Ses kaydedilmez; sadece yazıya dökülen metin işlenir. Yapay zekâ notu düzeltir, durumu ve geri arama zamanını kendisi işaretler.</p>
+      {footer !== null && <p className="text-xs text-slate-400">{footer ?? "Ses kaydedilmez; sadece yazıya dökülen metin işlenir. Yapay zekâ notu düzeltir, durumu ve geri arama zamanını kendisi işaretler."}</p>}
     </form>
   );
 }

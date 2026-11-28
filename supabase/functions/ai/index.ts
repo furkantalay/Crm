@@ -2,6 +2,7 @@
 //  action "ping"    (x-sync-token): anahtar çalışıyor mu
 //  action "score"   (x-sync-token, cron 2 dk): sıradaki dataları toplu puanlar (1-100, sıcak/ılık/soğuk, sektör grubu, gerekçe, sonraki adım)
 //  action "note"    (oturum): { customer_id, text, statuses } → sesli notu düzenli nota çevirir (durum, geri arama zamanı), puanı günceller
+//  action "assistant" (oturum, admin/yönetici): { text, people } → serbest metni görevlere/notlara böler
 //  action "summary" (oturum): { customer_id } → not geçmişi özeti + puan + sonraki adım (yalnızca datayı görebilen kullanıcı)
 // Modele ad, telefon, e-posta GÖNDERİLMEZ.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -100,6 +101,33 @@ Deno.serve(async (req) => {
       const ids: number[] = await rpc("ai_score_queue", { p_limit: Math.min(Number(body.limit) || 20, 40) });
       const n = await score(ids);
       return json({ ok: true, queued: ids.length, scored: n });
+    }
+
+    if (action === "assistant") {
+      const me = await caller(req);
+      if (!me || !["admin", "yonetici"].includes(me.role)) return json({ error: "Yetkisiz." }, 403);
+      const text = String(body.text ?? "").slice(0, 6000).trim();
+      if (!text) return json({ error: "Boş." }, 400);
+      const people = ((body.people ?? []) as { id: string; name: string; role?: string }[]).slice(0, 80);
+      const now = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul", weekday: "long", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+      const sys = `Sen Dijital Bir Adam şirketinin patronu Furkan'ın kişisel iş asistanısın. Furkan sana yazarak ya da konuşarak (konuşma tanıma, yazım hataları olabilir) not bırakır.
+Görevin bu metni ayrı ayrı yapılacak işlere bölmek ve save_tasks aracıyla kaydetmek.
+- title: kısa, emir kipinde iş tanımı (en fazla 10 kelime). details: bağlam, uyarılar, nasıl yapılacağı (söylenenden; uydurma yok). Söylenen önemli uyarıları (ör. "reklamlar bozulmasın") details'te koru.
+- assignee_id: iş bir çalışana verildiyse aşağıdaki listeden o kişinin id'si (isim/takma ad ile eşleştir, Türkçe ek ve yazım farklarını tolere et). Furkan'ın kendisinin yapacağı işler ya da kişisel notlar için boş bırak. Emin değilsen boş bırak.
+- due_at: zaman söylendiyse "YYYY-MM-DDTHH:MM" (İstanbul saati). Şu an: ${now}. Sadece gün söylendiyse 10:00. "bugün" ve saat yoksa 2 saat sonrası. Zaman yoksa boş.
+- reply: Furkan'a tek-iki cümlelik, sade Türkçe onay (kime ne iletildiğini söyle).
+Çalışan listesi: ${JSON.stringify(people.map((p) => ({ id: p.id, ad: p.name, rol: p.role })))}`;
+      const item = { type: "object", properties: { title: { type: "string" }, details: { type: "string" }, assignee_id: { type: "string" }, due_at: { type: "string" } }, required: ["title"] };
+      const { input: r } = await claude(sys, text, 2000, { name: "save_tasks", schema: { type: "object",
+        properties: { items: { type: "array", items: item }, reply: { type: "string" } }, required: ["items", "reply"] } });
+      const ids = new Set(people.map((p) => p.id));
+      const items = ((r?.items ?? []) as any[]).filter((i) => String(i.title ?? "").trim()).map((i) => ({
+        title: String(i.title).trim().slice(0, 200),
+        details: i.details ? String(i.details).slice(0, 2000) : null,
+        assignee_id: ids.has(i.assignee_id) ? i.assignee_id : null,
+        due_at: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(i.due_at ?? "") ? i.due_at : null,
+      }));
+      return json({ ok: true, items, reply: r?.reply ?? "" });
     }
 
     if (action === "summary" || action === "note") {

@@ -22,7 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const staff = r !== "satisci";
   const manager = r === "admin" || r === "yonetici";
   const items = [
+    { href: "/asistan", label: "🤖 Asistan", show: manager },
     { href: "/bugun", label: "Bugünüm", show: r === "satisci" },
+    { href: "/gorevler", label: "Görevlerim", show: r !== "admin" },
     { href: "/", label: "Panel", show: true },
     { href: "/ekip", label: "Ekip Durumu", show: manager },
     { href: "/dagitim", label: "Data Dağıtımı", show: manager },
